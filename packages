@@ -1,0 +1,5 @@
+platform: "linux"
+    system: "c"
+    system: "xcb"
+    system: "xcb-cursor"
+;
