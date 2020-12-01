@@ -1,7 +1,5 @@
 const Builder = @import("std").build.Builder;
 
-const pack = @import("pack.zig");
-
 pub fn build(b: *Builder) !void {
     const build_examples = b.option(bool, "build-examples", "Build zig window examples");
 
@@ -11,7 +9,9 @@ pub fn build(b: *Builder) !void {
     const lib = b.addStaticLibrary("zig-window", "src/main.zig");
     lib.setTarget(target);
     lib.setBuildMode(mode);
-    try pack.addPackages(b, lib);
+    lib.linkSystemLibrary("c");
+    lib.linkSystemLibrary("xcb-cursor");
+    lib.install();
 
     if (build_examples != null and build_examples.?) {
         const exe = b.addExecutable("example", "examples/src/main.zig");
