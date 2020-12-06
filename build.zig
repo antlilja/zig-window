@@ -1,19 +1,21 @@
 const Builder = @import("std").build.Builder;
 
 pub fn build(b: *Builder) !void {
-    const build_examples = b.option(bool, "build-examples", "Build zig window examples");
-
     const target = b.standardTargetOptions(.{});
-    const mode = b.standardReleaseOptions();
 
     const lib = b.addStaticLibrary("zig-window", "src/main.zig");
-    lib.setTarget(target);
-    lib.setBuildMode(mode);
-    lib.linkSystemLibrary("c");
-    lib.linkSystemLibrary("xcb-cursor");
-    lib.install();
+    switch (target.getOsTag()) {
+        .linux => {
+            lib.linkSystemLibrary("c");
+            lib.linkSystemLibrary("xcb-cursor");
+        },
+        else => @panic("Unsupported OS"),
+    }
+    lib.exportArtifact();
 
+    const build_examples = b.option(bool, "build-examples", "Build zig window examples");
     if (build_examples != null and build_examples.?) {
+        const mode = b.standardReleaseOptions();
         const exe = b.addExecutable("example", "examples/src/main.zig");
         exe.setTarget(target);
         exe.setBuildMode(mode);
