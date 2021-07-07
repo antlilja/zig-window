@@ -1,7 +1,7 @@
 const std = @import("std");
-const target = switch (std.Target.current.os.tag) {
-    .linux => "src/xcb.zig",
+const xcb = @import("src/xcb.zig");
+
+pub usingnamespace switch (std.Target.current.os.tag) {
+    .linux => xcb,
     else => unreachable,
 };
-
-pub usingnamespace @import(target);
