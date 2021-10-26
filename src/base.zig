@@ -129,22 +129,7 @@ pub const Rect = struct {
     height: u16,
 };
 
-pub const EventType = enum {
-    Destroy,
-    Resize,
-    Move,
-    KeyPress,
-    KeyRelease,
-    MousePress,
-    MouseRelease,
-    MouseScrollV,
-    MouseScrollH,
-    MouseMove,
-    FocusIn,
-    FocusOut,
-};
-
-pub const Event = union(EventType) {
+pub const Event = union(enum) {
     Destroy: void,
     Resize: Rect,
     Move: Point,
