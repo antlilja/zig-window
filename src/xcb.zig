@@ -16,7 +16,6 @@ pub const Window = struct {
     width: u16,
     height: u16,
     flags: u3 = 0b1,
-    event_handler: fn (Event) void,
 
     // Platform specific
     connection: *xcb.xcb_connection_t,
@@ -24,7 +23,7 @@ pub const Window = struct {
     screen: *xcb.xcb_screen_t,
     delete_window_atom: xcb.xcb_atom_t,
 
-    pub fn create(name: []const u8, width: u16, height: u16, event_handler: fn (Event) void) !Window {
+    pub fn create(name: []const u8, width: u16, height: u16) !Window {
         const connection = xcb.xcb_connect(null, null).?;
 
         if (xcb.xcb_connection_has_error(connection) != 0) {
@@ -107,7 +106,6 @@ pub const Window = struct {
         return Window{
             .width = width,
             .height = height,
-            .event_handler = event_handler,
             .connection = connection,
             .window = window,
             .screen = screen,
@@ -263,21 +261,34 @@ pub const Window = struct {
         _ = xcb.xcb_flush(self.connection);
     }
 
-    pub fn handle_events(self: *Window) void {
+    pub fn handle_events(self: *Window, event_handler: anytype) base.get_event_handler_return_type(@TypeOf(event_handler)) {
         var current = xcb.xcb_poll_for_event(self.*.connection);
+        const event_handler_error = base.get_event_handler_return_type(@TypeOf(event_handler)) != void;
 
         if (current != null) {
             var previous: ?*xcb.xcb_generic_event_t = null;
             var next = xcb.xcb_poll_for_event(self.*.connection);
-            while (next != null) {
-                self.proccess_event(current, next, previous);
+
+            while (current != null) {
+                if (self.proccess_event(
+                    current,
+                    next,
+                    previous,
+                )) |event| {
+                    switch (@typeInfo(@TypeOf(event_handler))) {
+                        .Fn => if (event_handler_error) try event_handler(event) else event_handler(event),
+                        .Pointer => if (event_handler_error) try event_handler.handleEvent(event) else event_handler.handleEvent(event),
+                        // This branch will never be reached because get_event_handler_return_type would've already thrown a compiler error
+                        else => unreachable,
+                    }
+                }
 
                 if (previous != null) c.free(previous.?);
                 previous = current;
                 current = next;
-                next = xcb.xcb_poll_for_event(self.*.connection);
+
+                if (current != null) next = xcb.xcb_poll_for_event(self.*.connection);
             }
-            self.proccess_event(current, next, previous);
         }
     }
 
@@ -286,13 +297,13 @@ pub const Window = struct {
         current: *xcb.xcb_generic_event_t,
         next: ?*xcb.xcb_generic_event_t,
         previous: ?*xcb.xcb_generic_event_t,
-    ) void {
+    ) ?Event {
         switch (@intCast(i16, current.*.response_type) & (-0x80 - 1)) {
             xcb.XCB_CLIENT_MESSAGE => {
                 const client_event = @ptrCast([*c]xcb.xcb_client_message_event_t, current);
                 if (client_event.*.data.data32[0] == self.delete_window_atom) {
                     self.*.flags &= 0b110;
-                    self.event_handler(Event.Destroy);
+                    return Event.Destroy;
                 }
             },
             xcb.XCB_CONFIGURE_NOTIFY => {
@@ -300,12 +311,12 @@ pub const Window = struct {
                 if (config_event.*.width != self.width or config_event.*.height != self.height) {
                     self.width = config_event.*.width;
                     self.height = config_event.*.height;
-                    self.event_handler(Event{ .Resize = Rect{ .width = self.width, .height = self.height } });
+                    return Event{ .Resize = Rect{ .width = self.width, .height = self.height } };
                 }
             },
             xcb.XCB_LEAVE_NOTIFY => {},
-            xcb.XCB_FOCUS_IN => self.event_handler(Event.FocusIn),
-            xcb.XCB_FOCUS_OUT => self.event_handler(Event.FocusOut),
+            xcb.XCB_FOCUS_IN => return Event.FocusIn,
+            xcb.XCB_FOCUS_OUT => return Event.FocusOut,
             xcb.XCB_KEY_PRESS => {
                 const key_event = @ptrCast([*c]xcb.xcb_key_press_event_t, current);
                 const prev_event = @ptrCast([*c]xcb.xcb_key_release_event_t, previous);
@@ -313,7 +324,7 @@ pub const Window = struct {
                     (prev_event.*.detail == key_event.*.detail) and
                     (prev_event.*.time == key_event.*.time)))
                 {
-                    self.event_handler(Event{ .KeyPress = base.keycode_to_enum(key_event.*.detail) });
+                    return Event{ .KeyPress = base.keycode_to_enum(key_event.*.detail) };
                 }
             },
             xcb.XCB_KEY_RELEASE => {
@@ -323,37 +334,38 @@ pub const Window = struct {
                     (next_event.*.detail == key_event.*.detail) and
                     (next_event.*.time == key_event.*.time)))
                 {
-                    self.event_handler(Event{ .KeyRelease = base.keycode_to_enum(key_event.*.detail) });
+                    return Event{ .KeyRelease = base.keycode_to_enum(key_event.*.detail) };
                 }
             },
             xcb.XCB_BUTTON_PRESS => {
                 const button_event = @ptrCast([*c]xcb.xcb_button_press_event_t, current);
                 switch (button_event.*.detail) {
-                    4 => self.event_handler(Event{ .MouseScrollV = 1 }),
-                    5 => self.event_handler(Event{ .MouseScrollV = -1 }),
-                    6 => self.event_handler(Event{ .MouseScrollH = 1 }),
-                    7 => self.event_handler(Event{ .MouseScrollH = -1 }),
-                    else => self.event_handler(Event{ .MousePress = base.mousecode_to_enum(button_event.*.detail) }),
+                    4 => return Event{ .MouseScrollV = 1 },
+                    5 => return Event{ .MouseScrollV = -1 },
+                    6 => return Event{ .MouseScrollH = 1 },
+                    7 => return Event{ .MouseScrollH = -1 },
+                    else => return Event{ .MousePress = base.mousecode_to_enum(button_event.*.detail) },
                 }
             },
             xcb.XCB_BUTTON_RELEASE => {
                 const button_event = @ptrCast([*c]xcb.xcb_button_release_event_t, current);
                 if (button_event.*.detail != 4 and button_event.*.detail != 5) {
-                    self.event_handler(Event{
+                    return Event{
                         .MouseRelease = base.mousecode_to_enum(button_event.*.detail),
-                    });
+                    };
                 }
             },
             xcb.XCB_MOTION_NOTIFY => {
                 const motion_event = @ptrCast([*c]xcb.xcb_motion_notify_event_t, current);
-                self.event_handler(Event{
+                return Event{
                     .MouseMove = Point{
                         .x = motion_event.*.event_x,
                         .y = motion_event.*.event_y,
                     },
-                });
+                };
             },
             else => {},
         }
+        return null;
     }
 };

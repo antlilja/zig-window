@@ -1,3 +1,5 @@
+const std = @import("std");
+
 pub const Key = enum {
     Zero,
     One,
@@ -278,3 +280,37 @@ pub fn mousecode_to_enum(code: u8) Mouse {
 }
 
 pub const Error = error{FailedToCreateWindow};
+
+const event_handler_name = "handleEvent";
+
+pub fn get_event_handler_func_return_type(comptime InnerType: type) type {
+    switch (@typeInfo(InnerType)) {
+        .ErrorUnion => |err| if (err.payload == void) return InnerType,
+        .Void => return void,
+        else => {},
+    }
+
+    @compileError("Unsupported event handler return type, only void or void error unions is supported");
+}
+
+pub fn get_event_handler_return_type(comptime EventHandler: type) type {
+    switch (@typeInfo(EventHandler)) {
+        .Fn => |func| return get_event_handler_func_return_type(func.return_type.?),
+        .Pointer => |ptr| switch (@typeInfo(ptr.child)) {
+            .Struct => |strct| {
+                inline for (strct.decls) |decl| {
+                    if (std.mem.eql(u8, decl.name, event_handler_name)) {
+                        switch (decl.data) {
+                            .Fn => |func| return get_event_handler_func_return_type(@typeInfo(func.fn_type).Fn.return_type.?),
+                            else => @compileError("Type of '" ++ event_handler_name ++ "' declaration in type '" ++ @typeName(ptr.child) ++ "' is not a function"),
+                        }
+                    }
+                }
+            },
+            else => {},
+        },
+        else => {},
+    }
+
+    @compileError("Unsupported event handler type: " ++ @typeName(EventHandler));
+}
