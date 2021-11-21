@@ -158,7 +158,7 @@ pub const Cursor = enum {
     Loading,
 };
 
-pub fn keycode_to_enum(code: u8) Key {
+pub fn keycodeToEnum(code: u8) Key {
     switch (code) {
         19 => return Key.Zero,
         10 => return Key.One,
@@ -268,7 +268,7 @@ pub fn keycode_to_enum(code: u8) Key {
     }
 }
 
-pub fn mousecode_to_enum(code: u8) Mouse {
+pub fn mousecodeToEnum(code: u8) Mouse {
     switch (code) {
         1 => return Mouse.Left,
         2 => return Mouse.Middle,
@@ -283,7 +283,7 @@ pub const Error = error{FailedToCreateWindow};
 
 const event_handler_name = "handleEvent";
 
-pub fn get_event_handler_func_return_type(comptime InnerType: type) type {
+pub fn getEventHandlerFuncReturnType(comptime InnerType: type) type {
     switch (@typeInfo(InnerType)) {
         .ErrorUnion => |err| if (err.payload == void) return InnerType,
         .Void => return void,
@@ -293,15 +293,15 @@ pub fn get_event_handler_func_return_type(comptime InnerType: type) type {
     @compileError("Unsupported event handler return type, only void or void error unions is supported");
 }
 
-pub fn get_event_handler_return_type(comptime EventHandler: type) type {
+pub fn getEventHandlerReturnType(comptime EventHandler: type) type {
     switch (@typeInfo(EventHandler)) {
-        .Fn => |func| return get_event_handler_func_return_type(func.return_type.?),
+        .Fn => |func| return getEventHandlerFuncReturnType(func.return_type.?),
         .Pointer => |ptr| switch (@typeInfo(ptr.child)) {
             .Struct => |strct| {
                 inline for (strct.decls) |decl| {
                     if (std.mem.eql(u8, decl.name, event_handler_name)) {
                         switch (decl.data) {
-                            .Fn => |func| return get_event_handler_func_return_type(@typeInfo(func.fn_type).Fn.return_type.?),
+                            .Fn => |func| return getEventHandlerFuncReturnType(@typeInfo(func.fn_type).Fn.return_type.?),
                             else => @compileError("Type of '" ++ event_handler_name ++ "' declaration in type '" ++ @typeName(ptr.child) ++ "' is not a function"),
                         }
                     }

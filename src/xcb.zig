@@ -118,19 +118,19 @@ pub const Window = struct {
         xcb.xcb_disconnect(self.connection);
     }
 
-    pub fn is_open(self: Window) bool {
+    pub fn isOpen(self: Window) bool {
         return 0b1 & self.flags == 0b1;
     }
 
-    pub fn is_fullscreen(self: Window) bool {
+    pub fn isFullscreen(self: Window) bool {
         return 0b10 & self.flags == 0b10;
     }
 
-    pub fn is_cursor_locked(self: Window) bool {
+    pub fn isCursorLocked(self: Window) bool {
         return 0b100 & self.flags == 0b100;
     }
 
-    pub fn get_name(self: Window, allocator: *std.mem.Allocator) ![]const u8 {
+    pub fn getName(self: Window, allocator: *std.mem.Allocator) ![]const u8 {
         const reply = xcb.xcb_get_property_reply(
             self.connection,
             xcb.xcb_get_property(self.connection, 0, self.window, xcb.XCB_ATOM_WM_NAME, xcb.XCB_ATOM_STRING, 0, 100),
@@ -144,7 +144,7 @@ pub const Window = struct {
         return name;
     }
 
-    pub fn set_name(self: Window, name: []const u8) void {
+    pub fn setName(self: Window, name: []const u8) void {
         _ = xcb.xcb_change_property(
             self.connection,
             xcb.XCB_PROP_MODE_REPLACE,
@@ -158,7 +158,7 @@ pub const Window = struct {
         _ = xcb.xcb_flush(self.connection);
     }
 
-    pub fn set_size(self: Window, width: u16, height: u16) void {
+    pub fn setSize(self: Window, width: u16, height: u16) void {
         if (self.is_fullscreen()) return;
 
         _ = xcb.xcb_unmap_window(self.connection, self.window);
@@ -171,8 +171,8 @@ pub const Window = struct {
         _ = xcb.xcb_flush(self.connection);
     }
 
-    pub fn set_fullscreen(self: *Window, comptime fullscreen: bool) void {
-        if (self.is_fullscreen() == fullscreen) return;
+    pub fn setFullscreen(self: *Window, comptime fullscreen: bool) void {
+        if (self.isFullscreen() == fullscreen) return;
 
         if (fullscreen) self.*.flags |= 0b10 else self.*.flags &= 0b101;
 
@@ -211,7 +211,7 @@ pub const Window = struct {
         // TODO: width and height struct members are currently not synced with actual height until resize event is handled
     }
 
-    pub fn set_cursor_icon(self: Window, cursor_icon: Cursor) void {
+    pub fn setCursorIcon(self: Window, cursor_icon: Cursor) void {
         var context: *allowzero xcb.xcb_cursor_context_t = undefined;
 
         // TODO: Handle error
@@ -234,11 +234,11 @@ pub const Window = struct {
         _ = xcb.xcb_flush(self.connection);
     }
 
-    pub fn show_cursor(self: Window) void {
+    pub fn showCursor(self: Window) void {
         self.set_cursor_icon(.Arrow);
     }
 
-    pub fn hide_cursor(self: Window) void {
+    pub fn hideCursor(self: Window) void {
         const empty_cursor = xcb.xcb_generate_id(self.connection);
         defer _ = xcb.xcb_free_cursor(self.connection, empty_cursor);
 
@@ -261,16 +261,16 @@ pub const Window = struct {
         _ = xcb.xcb_flush(self.connection);
     }
 
-    pub fn handle_events(self: *Window, event_handler: anytype) base.get_event_handler_return_type(@TypeOf(event_handler)) {
+    pub fn handleEvents(self: *Window, event_handler: anytype) base.getEventHandlerReturnType(@TypeOf(event_handler)) {
         var current = xcb.xcb_poll_for_event(self.*.connection);
-        const event_handler_error = base.get_event_handler_return_type(@TypeOf(event_handler)) != void;
+        const event_handler_error = base.getEventHandlerReturnType(@TypeOf(event_handler)) != void;
 
         if (current != null) {
             var previous: ?*xcb.xcb_generic_event_t = null;
             var next = xcb.xcb_poll_for_event(self.*.connection);
 
             while (current != null) {
-                if (self.proccess_event(
+                if (self.proccessEvent(
                     current,
                     next,
                     previous,
@@ -292,7 +292,7 @@ pub const Window = struct {
         }
     }
 
-    fn proccess_event(
+    fn proccessEvent(
         self: *Window,
         current: *xcb.xcb_generic_event_t,
         next: ?*xcb.xcb_generic_event_t,
@@ -324,7 +324,7 @@ pub const Window = struct {
                     (prev_event.*.detail == key_event.*.detail) and
                     (prev_event.*.time == key_event.*.time)))
                 {
-                    return Event{ .KeyPress = base.keycode_to_enum(key_event.*.detail) };
+                    return Event{ .KeyPress = base.keycodeToEnum(key_event.*.detail) };
                 }
             },
             xcb.XCB_KEY_RELEASE => {
@@ -334,7 +334,7 @@ pub const Window = struct {
                     (next_event.*.detail == key_event.*.detail) and
                     (next_event.*.time == key_event.*.time)))
                 {
-                    return Event{ .KeyRelease = base.keycode_to_enum(key_event.*.detail) };
+                    return Event{ .KeyRelease = base.keycodeToEnum(key_event.*.detail) };
                 }
             },
             xcb.XCB_BUTTON_PRESS => {
@@ -344,14 +344,14 @@ pub const Window = struct {
                     5 => return Event{ .MouseScrollV = -1 },
                     6 => return Event{ .MouseScrollH = 1 },
                     7 => return Event{ .MouseScrollH = -1 },
-                    else => return Event{ .MousePress = base.mousecode_to_enum(button_event.*.detail) },
+                    else => return Event{ .MousePress = base.mousecodeToEnum(button_event.*.detail) },
                 }
             },
             xcb.XCB_BUTTON_RELEASE => {
                 const button_event = @ptrCast([*c]xcb.xcb_button_release_event_t, current);
                 if (button_event.*.detail != 4 and button_event.*.detail != 5) {
                     return Event{
-                        .MouseRelease = base.mousecode_to_enum(button_event.*.detail),
+                        .MouseRelease = base.mousecodeToEnum(button_event.*.detail),
                     };
                 }
             },

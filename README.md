@@ -27,8 +27,8 @@ pub fn main() anyerror!void {
     var window = try zw.Window.create("Example window", 960, 540);
     defer window.destroy();
 
-    while (window.is_open()) {
-        window.handle_events(handleEvent);
+    while (window.isOpen()) {
+        window.handleEvents(handleEvent);
     }
 }
 ```
