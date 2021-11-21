@@ -1,7 +1,7 @@
 # zig-window
 A work in progress zig window library
 
-Currently only supports linux thorugh XCB.
+Currently only supports linux through XCB.
 
 ## Example using function event handler:
 ```zig
