@@ -261,9 +261,19 @@ pub const Window = struct {
         _ = xcb.xcb_flush(self.connection);
     }
 
-    pub fn handleEvents(self: *Window, event_handler: anytype) base.getEventHandlerReturnType(@TypeOf(event_handler)) {
+    fn handleEvent(event_handler: anytype, event: Event) base.GetEventHandlerReturnType(@TypeOf(event_handler)) {
+        return switch (@typeInfo(@TypeOf(event_handler))) {
+            .Fn => event_handler(event),
+            .Pointer => @field(event_handler, base.event_handler_name)(event),
+            .Struct => @field(event_handler, base.event_handler_name)(event),
+            // This branch will never be reached because GetEventHandlerReturnType would've already thrown a compiler error
+            else => unreachable,
+        };
+    }
+
+    pub fn handleEvents(self: *Window, event_handler: anytype) base.GetEventHandlerReturnType(@TypeOf(event_handler)) {
         var current = xcb.xcb_poll_for_event(self.*.connection);
-        const event_handler_error = base.getEventHandlerReturnType(@TypeOf(event_handler)) != void;
+        const event_handler_error = base.GetEventHandlerReturnType(@TypeOf(event_handler)) != void;
 
         if (current != null) {
             var previous: ?*xcb.xcb_generic_event_t = null;
@@ -274,14 +284,7 @@ pub const Window = struct {
                     current,
                     next,
                     previous,
-                )) |event| {
-                    switch (@typeInfo(@TypeOf(event_handler))) {
-                        .Fn => if (event_handler_error) try event_handler(event) else event_handler(event),
-                        .Pointer => if (event_handler_error) try event_handler.handleEvent(event) else event_handler.handleEvent(event),
-                        // This branch will never be reached because get_event_handler_return_type would've already thrown a compiler error
-                        else => unreachable,
-                    }
-                }
+                )) |event| if (event_handler_error) try handleEvent(event_handler, event) else handleEvent(event_handler, event);
 
                 if (previous != null) c.free(previous.?);
                 previous = current;

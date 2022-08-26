@@ -1,4 +1,5 @@
 const std = @import("std");
+const root = @import("root");
 
 pub const Key = enum {
     Zero,
@@ -281,34 +282,32 @@ pub fn mousecodeToEnum(code: u8) Mouse {
 
 pub const Error = error{FailedToCreateWindow};
 
-const event_handler_name = "handleEvent";
+pub const event_handler_name = if (@hasDecl(root, "event_handler_name")) root.event_handler_name else "handleEvent";
 
-pub fn getEventHandlerFuncReturnType(comptime InnerType: type) type {
-    switch (@typeInfo(InnerType)) {
-        .ErrorUnion => |err| if (err.payload == void) return InnerType,
+fn GetEventHandlerFuncReturnType(comptime FuncType: type) type {
+    const ReturnType = @typeInfo(FuncType).Fn.return_type.?;
+    switch (@typeInfo(ReturnType)) {
+        .ErrorUnion => |err| if (err.payload == void) return ReturnType,
         .Void => return void,
         else => {},
     }
 
-    @compileError("Unsupported event handler return type, only void or void error unions is supported");
+    @compileError("Unsupported event handler return type '" ++ @typeName(ReturnType) ++ "', only void or void error unions is supported");
 }
 
-pub fn getEventHandlerReturnType(comptime EventHandler: type) type {
+fn GetEventHandlerStructReturnType(comptime StructType: type) type {
+    return GetEventHandlerFuncReturnType(@TypeOf(@field(StructType, event_handler_name)));
+}
+
+pub fn GetEventHandlerReturnType(comptime EventHandler: type) type {
     switch (@typeInfo(EventHandler)) {
-        .Fn => |func| return getEventHandlerFuncReturnType(func.return_type.?),
+        .Fn => |_| return GetEventHandlerFuncReturnType(EventHandler),
+        .Struct => |_| return GetEventHandlerStructReturnType(EventHandler),
         .Pointer => |ptr| switch (@typeInfo(ptr.child)) {
-            .Struct => |strct| {
-                inline for (strct.decls) |decl| {
-                    if (std.mem.eql(u8, decl.name, event_handler_name)) {
-                        switch (decl.data) {
-                            .Fn => |func| return getEventHandlerFuncReturnType(@typeInfo(func.fn_type).Fn.return_type.?),
-                            else => @compileError("Type of '" ++ event_handler_name ++ "' declaration in type '" ++ @typeName(ptr.child) ++ "' is not a function"),
-                        }
-                    }
-                }
-            },
+            .Struct => |_| return GetEventHandlerStructReturnType(ptr.child),
             else => {},
         },
+
         else => {},
     }
 

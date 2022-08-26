@@ -10,15 +10,15 @@ const zw = @import("zig-window");
 
 fn handleEvent(event: zw.Event) void {
     switch (event) {
-        .Destroy => std.debug.warn("Window destroyed\n", .{}),
-        .FocusIn => std.debug.warn("Focus in\n", .{}),
-        .FocusOut => std.debug.warn("Focus out\n", .{}),
-        .Resize => |value| std.debug.warn("Resize: {}, {}\n", .{ value.width, value.height }),
-        .KeyPress => |value| std.debug.warn("Key pressed: {}\n", .{value}),
-        .KeyRelease => |value| std.debug.warn("Key released: {}\n", .{value}),
-        .MouseScrollV => |value| std.debug.warn("Mouse scroll vertical: {}\n", .{value}),
-        .MousePress => |value| std.debug.warn("{} pressed\n", .{value}),
-        .MouseRelease => |value| std.debug.warn("{} released\n", .{value}),
+        .Destroy => std.log.info("Window destroyed\n", .{}),
+        .FocusIn => std.log.info("Focus in\n", .{}),
+        .FocusOut => std.log.info("Focus out\n", .{}),
+        .Resize => |value| std.log.info("Resize: {}, {}\n", .{ value.width, value.height }),
+        .KeyPress => |value| std.log.info("Key pressed: {}\n", .{value}),
+        .KeyRelease => |value| std.log.info("Key released: {}\n", .{value}),
+        .MouseScrollV => |value| std.log.info("Mouse scroll vertical: {}\n", .{value}),
+        .MousePress => |value| std.log.info("{} pressed\n", .{value}),
+        .MouseRelease => |value| std.log.info("{} released\n", .{value}),
         else => {},
     }
 }
@@ -43,18 +43,18 @@ const EventHandler = struct {
 
     pub fn handleEvent(self: *EventHandler, event: zw.Event) void {
         switch (event) {
-            .Destroy => std.debug.warn("Window destroyed\n", .{}),
-            .FocusIn => std.debug.warn("Focus in\n", .{}),
-            .FocusOut => std.debug.warn("Focus out\n", .{}),
-            .Resize => |value| std.debug.warn("Resize: {}, {}\n", .{ value.width, value.height }),
-            .KeyPress => |value| std.debug.warn("Key pressed: {}\n", .{value}),
-            .KeyRelease => |value| std.debug.warn("Key released: {}\n", .{value}),
-            .MouseScrollV => |value| std.debug.warn("Mouse scroll vertical: {}\n", .{value}),
-            .MousePress => |value| std.debug.warn("{} pressed\n", .{value}),
-            .MouseRelease => |value| std.debug.warn("{} released\n", .{value}),
+            .Destroy => std.log.info("Window destroyed\n", .{}),
+            .FocusIn => std.log.info("Focus in\n", .{}),
+            .FocusOut => std.log.info("Focus out\n", .{}),
+            .Resize => |value| std.log.info("Resize: {}, {}\n", .{ value.width, value.height }),
+            .KeyPress => |value| std.log.info("Key pressed: {}\n", .{value}),
+            .KeyRelease => |value| std.log.info("Key released: {}\n", .{value}),
+            .MouseScrollV => |value| std.log.info("Mouse scroll vertical: {}\n", .{value}),
+            .MousePress => |value| std.log.info("{} pressed\n", .{value}),
+            .MouseRelease => |value| std.log.info("{} released\n", .{value}),
             else => {
                 self.unhandled_event_count += 1;
-                std.debug.warn("Unhandled event number: {}\n", .{self.unhandled_event_count});
+                std.log.info("Unhandled event number: {}\n", .{self.unhandled_event_count});
             },
         }
     }
@@ -79,15 +79,15 @@ const zw = @import("zig-window");
 
 fn handleEvent(event: zw.Event) !void {
     switch (event) {
-        .Destroy => std.debug.warn("Window destroyed\n", .{}),
-        .FocusIn => std.debug.warn("Focus in\n", .{}),
-        .FocusOut => std.debug.warn("Focus out\n", .{}),
-        .Resize => |value| std.debug.warn("Resize: {}, {}\n", .{ value.width, value.height }),
-        .KeyPress => |value| std.debug.warn("Key pressed: {}\n", .{value}),
-        .KeyRelease => |value| std.debug.warn("Key released: {}\n", .{value}),
-        .MouseScrollV => |value| std.debug.warn("Mouse scroll vertical: {}\n", .{value}),
-        .MousePress => |value| std.debug.warn("{} pressed\n", .{value}),
-        .MouseRelease => |value| std.debug.warn("{} released\n", .{value}),
+        .Destroy => std.log.info("Window destroyed\n", .{}),
+        .FocusIn => std.log.info("Focus in\n", .{}),
+        .FocusOut => std.log.info("Focus out\n", .{}),
+        .Resize => |value| std.log.info("Resize: {}, {}\n", .{ value.width, value.height }),
+        .KeyPress => |value| std.log.info("Key pressed: {}\n", .{value}),
+        .KeyRelease => |value| std.log.info("Key released: {}\n", .{value}),
+        .MouseScrollV => |value| std.log.info("Mouse scroll vertical: {}\n", .{value}),
+        .MousePress => |value| std.log.info("{} pressed\n", .{value}),
+        .MouseRelease => |value| std.log.info("{} released\n", .{value}),
         else => return error.UnhandledEvent,
     }
 }
