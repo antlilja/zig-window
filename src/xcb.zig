@@ -140,7 +140,7 @@ pub const Window = struct {
         const ptr = @ptrCast([*]u8, xcb.xcb_get_property_value(reply));
         const size = @intCast(usize, xcb.xcb_get_property_value_length(reply));
         var name = try allocator.alloc(u8, size);
-        for (ptr[0..size]) |b, i| name[i] = b;
+        for (ptr[0..size], 0..) |b, i| name[i] = b;
         return name;
     }
 
