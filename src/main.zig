@@ -1,6 +1,7 @@
 const std = @import("std");
-const base = @import("src/base.zig");
-const xcb = @import("src/xcb.zig");
+
+const base = @import("base.zig");
+const xcb = @import("xcb.zig");
 
 pub const Event = base.Event;
 pub const Rect = base.Rect;
