@@ -1,0 +1,12 @@
+.{
+	.name = "zig-window",
+	.version = "0.1.0",
+
+	.dependencies = .{
+		.@"zig-wayland" = .{
+			.url = "https://github.com/antlilja/zig-wayland/archive/7020cb0a48c606ae6ad380ee72d92f96bb6b825f.tar.gz",
+			.hash = "122057b95e1d15d55666fb2bb11b05b4df1326e66622d205b1dc5d69f0a704bd32f5",
+			
+		},
+	},
+}

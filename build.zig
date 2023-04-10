@@ -1,12 +1,28 @@
 const std = @import("std");
 const Build = std.Build;
 
+const ScanProtocolsStep = @import("zig-wayland").ScanProtocolsStep;
+
 pub fn build(b: *Build) void {
     const optimize = b.standardOptimizeOption(.{});
     const target = b.standardTargetOptions(.{});
 
+    const scanner = ScanProtocolsStep.create(b);
+    scanner.addSystemProtocol("stable/xdg-shell/xdg-shell.xml");
+    scanner.generate("wl_compositor", 1);
+    scanner.generate("wl_shm", 1);
+    scanner.generate("xdg_wm_base", 1);
+
+    const scanner_module = b.createModule(.{
+        .source_file = .{ .generated = &scanner.result },
+    });
+
     const mod = b.addModule("zig-window", .{
         .source_file = .{ .path = "src/main.zig" },
+        .dependencies = &.{.{
+            .name = "wayland",
+            .module = scanner_module,
+        }},
     });
 
     // TODO: This is a workaround until modules support linking to system libraries
@@ -15,9 +31,11 @@ pub fn build(b: *Build) void {
         .target = target,
         .optimize = optimize,
     });
+    lib.step.dependOn(&scanner.step);
     lib.linkLibC();
-    lib.linkSystemLibrary("xcb");
+    lib.linkSystemLibrary("wayland-client");
     lib.install();
+    scanner.addCSource(lib);
 
     const example = b.addExecutable(.{
         .name = "zig-window-example",

@@ -1,7 +1,7 @@
 const std = @import("std");
 const zw = @import("zig-window");
 
-fn handleEvent(event: zw.Event) void {
+fn handleEvent(_: ?*anyopaque, event: zw.Event) void {
     switch (event) {
         .Destroy => std.log.info("Window destroyed", .{}),
         .FocusIn => std.log.info("Focus in", .{}),
@@ -17,10 +17,13 @@ fn handleEvent(event: zw.Event) void {
 }
 
 pub fn main() anyerror!void {
-    var window = try zw.Window.create("Example window", 960, 540);
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+
+    var window = try zw.Window.create("Example window", 960, 540, &handleEvent, null, gpa.allocator());
     defer window.destroy();
 
     while (window.isOpen()) {
-        window.handleEvents(handleEvent);
+        window.update();
     }
 }
