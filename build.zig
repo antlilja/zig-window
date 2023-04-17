@@ -17,7 +17,7 @@ pub fn build(b: *Build) void {
     });
     lib.linkLibC();
     lib.linkSystemLibrary("xcb");
-    lib.install();
+    b.installArtifact(lib);
 
     const example = b.addExecutable(.{
         .name = "zig-window-example",
@@ -28,7 +28,7 @@ pub fn build(b: *Build) void {
     example.addModule("zig-window", mod);
     example.linkLibrary(lib);
 
-    const run_cmd = example.run();
+    const run_cmd = b.addRunArtifact(example);
     run_cmd.step.dependOn(b.getInstallStep());
     if (b.args) |args| {
         run_cmd.addArgs(args);
