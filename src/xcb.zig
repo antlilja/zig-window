@@ -181,14 +181,14 @@ pub const Window = struct {
         if (fullscreen) {
             const atom_wm_state = xcb.xcb_intern_atom_reply(
                 self.*.connection,
-                xcb.xcb_intern_atom(self.*.connection, @boolToInt(false), "_NET_WM_STATE".len, "_NET_WM_STATE"),
+                xcb.xcb_intern_atom(self.*.connection, 0, "_NET_WM_STATE".len, "_NET_WM_STATE"),
                 null,
             );
             defer c.free(atom_wm_state);
 
             const atom_wm_fullscreen = xcb.xcb_intern_atom_reply(
                 self.*.connection,
-                xcb.xcb_intern_atom(self.*.connection, @boolToInt(false), "_NET_WM_STATE_FULLSCREEN".len, "_NET_WM_STATE_FULLSCREEN"),
+                xcb.xcb_intern_atom(self.*.connection, 0, "_NET_WM_STATE_FULLSCREEN".len, "_NET_WM_STATE_FULLSCREEN"),
                 null,
             );
             defer c.free(atom_wm_fullscreen);
