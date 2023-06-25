@@ -128,8 +128,8 @@ pub const Point = struct {
 };
 
 pub const Rect = struct {
-    width: u16,
-    height: u16,
+    width: u32,
+    height: u32,
 };
 
 pub const Event = union(enum) {
@@ -282,34 +282,4 @@ pub fn mousecodeToEnum(code: u8) Mouse {
 
 pub const Error = error{FailedToCreateWindow};
 
-pub const event_handler_name = if (@hasDecl(root, "event_handler_name")) root.event_handler_name else "handleEvent";
-
-fn GetEventHandlerFuncReturnType(comptime FuncType: type) type {
-    const ReturnType = @typeInfo(FuncType).Fn.return_type.?;
-    switch (@typeInfo(ReturnType)) {
-        .ErrorUnion => |err| if (err.payload == void) return ReturnType,
-        .Void => return void,
-        else => {},
-    }
-
-    @compileError("Unsupported event handler return type '" ++ @typeName(ReturnType) ++ "', only void or void error unions is supported");
-}
-
-fn GetEventHandlerStructReturnType(comptime StructType: type) type {
-    return GetEventHandlerFuncReturnType(@TypeOf(@field(StructType, event_handler_name)));
-}
-
-pub fn GetEventHandlerReturnType(comptime EventHandler: type) type {
-    switch (@typeInfo(EventHandler)) {
-        .Fn => |_| return GetEventHandlerFuncReturnType(EventHandler),
-        .Struct => |_| return GetEventHandlerStructReturnType(EventHandler),
-        .Pointer => |ptr| switch (@typeInfo(ptr.child)) {
-            .Struct => |_| return GetEventHandlerStructReturnType(ptr.child),
-            else => {},
-        },
-
-        else => {},
-    }
-
-    @compileError("Unsupported event handler type: " ++ @typeName(EventHandler));
-}
+pub const EventHandler = *const fn (?*anyopaque, Event) void;

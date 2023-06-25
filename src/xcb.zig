@@ -6,6 +6,7 @@ const Rect = base.Rect;
 const Point = base.Point;
 const Cursor = base.Cursor;
 const Error = base.Error;
+const EventHandler = base.EventHandler;
 
 const xcb = @cImport({
     @cInclude("xcb/xcb.h");
@@ -13,9 +14,11 @@ const xcb = @cImport({
 });
 
 pub const Window = struct {
-    width: u16,
-    height: u16,
-    flags: u3 = 0b1,
+    width: u32,
+    height: u32,
+    is_open: bool = true,
+    is_fullscreen: bool = false,
+    is_cursor_locked: bool = false,
 
     // Platform specific
     connection: *xcb.xcb_connection_t,
@@ -23,7 +26,19 @@ pub const Window = struct {
     screen: *xcb.xcb_screen_t,
     delete_window_atom: xcb.xcb_atom_t,
 
-    pub fn create(name: []const u8, width: u16, height: u16) !Window {
+    allocator: std.mem.Allocator,
+
+    event_handler: EventHandler,
+    event_handler_data: ?*anyopaque,
+
+    pub fn create(
+        name: []const u8,
+        width: u32,
+        height: u32,
+        event_handler: EventHandler,
+        event_handler_data: ?*anyopaque,
+        allocator: std.mem.Allocator,
+    ) !*Window {
         const connection = xcb.xcb_connect(null, null).?;
 
         if (xcb.xcb_connection_has_error(connection) != 0) {
@@ -52,8 +67,8 @@ pub const Window = struct {
             screen.*.root,
             10,
             10,
-            width,
-            height,
+            @truncate(u16, width),
+            @truncate(u16, height),
             1,
             xcb.XCB_WINDOW_CLASS_INPUT_OUTPUT,
             screen.*.root_visual,
@@ -103,31 +118,38 @@ pub const Window = struct {
         _ = xcb.xcb_map_window(connection, window);
         _ = xcb.xcb_flush(connection);
 
-        return Window{
+        var self = try allocator.create(Window);
+        self.* = .{
             .width = width,
             .height = height,
             .connection = connection,
             .window = window,
             .screen = screen,
             .delete_window_atom = delete_window_atom,
+
+            .allocator = allocator,
+            .event_handler = event_handler,
+            .event_handler_data = event_handler_data,
         };
+        return self;
     }
 
-    pub fn destroy(self: Window) void {
+    pub fn destroy(self: *const Window) void {
         _ = xcb.xcb_destroy_window(self.connection, self.window);
         xcb.xcb_disconnect(self.connection);
+        self.allocator.destroy(self);
     }
 
-    pub fn isOpen(self: Window) bool {
-        return 0b1 & self.flags == 0b1;
+    pub fn isOpen(self: *const Window) bool {
+        return self.is_open;
     }
 
-    pub fn isFullscreen(self: Window) bool {
-        return 0b10 & self.flags == 0b10;
+    pub fn isFullscreen(self: *const Window) bool {
+        return self.is_fullscreen;
     }
 
-    pub fn isCursorLocked(self: Window) bool {
-        return 0b100 & self.flags == 0b100;
+    pub fn isCursorLocked(self: *const Window) bool {
+        return self.is_cursor_locked;
     }
 
     pub fn getName(self: Window, allocator: *std.mem.Allocator) ![]const u8 {
@@ -174,7 +196,7 @@ pub const Window = struct {
     pub fn setFullscreen(self: *Window, comptime fullscreen: bool) void {
         if (self.isFullscreen() == fullscreen) return;
 
-        if (fullscreen) self.*.flags |= 0b10 else self.*.flags &= 0b101;
+        fullscreen = !fullscreen;
 
         _ = xcb.xcb_unmap_window(self.*.connection, self.*.window);
 
@@ -261,19 +283,8 @@ pub const Window = struct {
         _ = xcb.xcb_flush(self.connection);
     }
 
-    fn handleEvent(event_handler: anytype, event: Event) base.GetEventHandlerReturnType(@TypeOf(event_handler)) {
-        return switch (@typeInfo(@TypeOf(event_handler))) {
-            .Fn => event_handler(event),
-            .Pointer => @field(event_handler, base.event_handler_name)(event),
-            .Struct => @field(event_handler, base.event_handler_name)(event),
-            // This branch will never be reached because GetEventHandlerReturnType would've already thrown a compiler error
-            else => unreachable,
-        };
-    }
-
-    pub fn handleEvents(self: *Window, event_handler: anytype) base.GetEventHandlerReturnType(@TypeOf(event_handler)) {
+    pub fn handleEvents(self: *Window) void {
         var current = xcb.xcb_poll_for_event(self.*.connection);
-        const event_handler_error = base.GetEventHandlerReturnType(@TypeOf(event_handler)) != void;
 
         if (current != null) {
             var previous: ?*xcb.xcb_generic_event_t = null;
@@ -284,7 +295,7 @@ pub const Window = struct {
                     current,
                     next,
                     previous,
-                )) |event| if (event_handler_error) try handleEvent(event_handler, event) else handleEvent(event_handler, event);
+                )) |event| self.event_handler(self.event_handler_data, event);
 
                 if (previous != null) c.free(previous.?);
                 previous = current;
@@ -305,7 +316,7 @@ pub const Window = struct {
             xcb.XCB_CLIENT_MESSAGE => {
                 const client_event = @ptrCast([*c]xcb.xcb_client_message_event_t, current);
                 if (client_event.*.data.data32[0] == self.delete_window_atom) {
-                    self.*.flags &= 0b110;
+                    self.is_open = false;
                     return Event.Destroy;
                 }
             },
