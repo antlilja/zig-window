@@ -4,8 +4,8 @@
 
 	.dependencies = .{
 		.@"zig-wayland" = .{
-			.url = "https://github.com/antlilja/zig-wayland/archive/7020cb0a48c606ae6ad380ee72d92f96bb6b825f.tar.gz",
-			.hash = "122057b95e1d15d55666fb2bb11b05b4df1326e66622d205b1dc5d69f0a704bd32f5",
+			.url = "https://github.com/antlilja/zig-wayland/archive/350a612fad26aa501285bf287b66f9944a3012b7.tar.gz",
+			.hash = "12203e563737973996fbee2dc5fc7911c511924d16e0cd2fcee3f893fd13da95d31d",
 			
 		},
 	},

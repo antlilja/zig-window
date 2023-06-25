@@ -33,13 +33,14 @@ pub const Window = struct {
     event_handler: EventHandler,
 
     pub fn create(
-        name: [*:0]const u8,
+        name: []const u8,
         width: u32,
         height: u32,
         event_handler: EventHandler,
         event_handler_data: ?*anyopaque,
         allocator: std.mem.Allocator,
     ) !*Window {
+        _ = name;
         const self = try allocator.create(Window);
         errdefer allocator.destroy(self);
         self.* = .{
@@ -79,9 +80,9 @@ pub const Window = struct {
         self.xdg_toplevel = try self.xdg_surface.getToplevel();
         errdefer self.xdg_toplevel.destroy();
 
-        self.xdg_toplevel.setTitle(name);
+        // self.xdg_toplevel.setTitle(name);
 
-        self.xdg_surface.setListener(*wl.Surface, xdgSurfaceListener, self.surface);
+        self.xdg_surface.setListener(*Window, xdgSurfaceListener, self);
         self.xdg_toplevel.setListener(*Window, xdgToplevelListener, self);
 
         self.surface.commit();
@@ -124,9 +125,9 @@ pub const Window = struct {
     }
 
     pub fn update(self: *Window) void {
-        // while (!self.display.prepareRead()) {
-        //     _ = self.display.dispatchPending();
-        // }
+        while (!self.display.prepareRead()) {
+            _ = self.display.dispatchPending();
+        }
 
         _ = self.display.flush();
         _ = self.display.readEvents();
@@ -150,11 +151,11 @@ pub const Window = struct {
         }
     }
 
-    fn xdgSurfaceListener(xdg_surface: *xdg.Surface, event: xdg.Surface.Event, surface: *wl.Surface) void {
+    fn xdgSurfaceListener(xdg_surface: *xdg.Surface, event: xdg.Surface.Event, self: *Window) void {
         switch (event) {
             .configure => |configure| {
                 xdg_surface.ackConfigure(configure.serial);
-                surface.commit();
+                self.surface.commit();
             },
         }
     }
