@@ -67,8 +67,8 @@ pub const Window = struct {
             screen.*.root,
             10,
             10,
-            @truncate(u16, width),
-            @truncate(u16, height),
+            @truncate(width),
+            @truncate(height),
             1,
             xcb.XCB_WINDOW_CLASS_INPUT_OUTPUT,
             screen.*.root_visual,
@@ -111,7 +111,7 @@ pub const Window = struct {
             xcb.XCB_ATOM_WM_NAME,
             xcb.XCB_ATOM_STRING,
             8,
-            @intCast(u32, name.len),
+            @intCast(name.len),
             &name[0],
         );
 
@@ -159,8 +159,8 @@ pub const Window = struct {
             null,
         );
         defer c.free(reply);
-        const ptr = @ptrCast([*]u8, xcb.xcb_get_property_value(reply));
-        const size = @intCast(usize, xcb.xcb_get_property_value_length(reply));
+        const ptr: [*]u8 = @ptrCast(xcb.xcb_get_property_value(reply));
+        const size: usize = @intCast(xcb.xcb_get_property_value_length(reply));
         var name = try allocator.alloc(u8, size);
         for (ptr[0..size], 0..) |b, i| name[i] = b;
         return name;
@@ -174,7 +174,7 @@ pub const Window = struct {
             xcb.XCB_ATOM_WM_NAME,
             xcb.XCB_ATOM_STRING,
             8,
-            @intCast(u32, name.len),
+            @intCast(name.len),
             &name[0],
         );
         _ = xcb.xcb_flush(self.connection);
@@ -312,16 +312,16 @@ pub const Window = struct {
         next: ?*xcb.xcb_generic_event_t,
         previous: ?*xcb.xcb_generic_event_t,
     ) ?Event {
-        switch (@intCast(i16, current.*.response_type) & (-0x80 - 1)) {
+        switch (@as(i16, @intCast(current.*.response_type)) & (-0x80 - 1)) {
             xcb.XCB_CLIENT_MESSAGE => {
-                const client_event = @ptrCast([*c]xcb.xcb_client_message_event_t, current);
+                const client_event: [*c]xcb.xcb_client_message_event_t = @ptrCast(current);
                 if (client_event.*.data.data32[0] == self.delete_window_atom) {
                     self.is_open = false;
                     return Event.Destroy;
                 }
             },
             xcb.XCB_CONFIGURE_NOTIFY => {
-                const config_event = @ptrCast([*c]xcb.xcb_configure_notify_event_t, current);
+                const config_event: [*c]xcb.xcb_configure_notify_event_t = @ptrCast(current);
                 if (config_event.*.width != self.width or config_event.*.height != self.height) {
                     self.width = config_event.*.width;
                     self.height = config_event.*.height;
@@ -332,9 +332,9 @@ pub const Window = struct {
             xcb.XCB_FOCUS_IN => return Event.FocusIn,
             xcb.XCB_FOCUS_OUT => return Event.FocusOut,
             xcb.XCB_KEY_PRESS => {
-                const key_event = @ptrCast([*c]xcb.xcb_key_press_event_t, current);
-                const prev_event = @ptrCast([*c]xcb.xcb_key_release_event_t, previous);
-                if (!(previous != null and ((@intCast(i16, previous.?.*.response_type) & (-0x80 - 1)) == xcb.XCB_KEY_RELEASE) and
+                const key_event: [*c]xcb.xcb_key_press_event_t = @ptrCast(current);
+                const prev_event: [*c]xcb.xcb_key_release_event_t = @ptrCast(previous);
+                if (!(previous != null and ((@as(i16, @intCast(previous.?.*.response_type)) & (-0x80 - 1)) == xcb.XCB_KEY_RELEASE) and
                     (prev_event.*.detail == key_event.*.detail) and
                     (prev_event.*.time == key_event.*.time)))
                 {
@@ -342,9 +342,9 @@ pub const Window = struct {
                 }
             },
             xcb.XCB_KEY_RELEASE => {
-                const key_event = @ptrCast([*c]xcb.xcb_key_release_event_t, current);
-                const next_event = @ptrCast([*c]xcb.xcb_key_press_event_t, next);
-                if (!(next != null and ((@intCast(i16, next.?.*.response_type) & (-0x80 - 1)) == xcb.XCB_KEY_PRESS) and
+                const key_event: [*c]xcb.xcb_key_release_event_t = @ptrCast(current);
+                const next_event: [*c]xcb.xcb_key_press_event_t = @ptrCast(next);
+                if (!(next != null and ((@as(i16, @intCast(next.?.*.response_type)) & (-0x80 - 1)) == xcb.XCB_KEY_PRESS) and
                     (next_event.*.detail == key_event.*.detail) and
                     (next_event.*.time == key_event.*.time)))
                 {
@@ -352,7 +352,7 @@ pub const Window = struct {
                 }
             },
             xcb.XCB_BUTTON_PRESS => {
-                const button_event = @ptrCast([*c]xcb.xcb_button_press_event_t, current);
+                const button_event: [*c]xcb.xcb_button_press_event_t = @ptrCast(current);
                 switch (button_event.*.detail) {
                     4 => return Event{ .MouseScrollV = 1 },
                     5 => return Event{ .MouseScrollV = -1 },
@@ -362,7 +362,7 @@ pub const Window = struct {
                 }
             },
             xcb.XCB_BUTTON_RELEASE => {
-                const button_event = @ptrCast([*c]xcb.xcb_button_release_event_t, current);
+                const button_event: [*c]xcb.xcb_button_release_event_t = @ptrCast(current);
                 if (button_event.*.detail != 4 and button_event.*.detail != 5) {
                     return Event{
                         .MouseRelease = base.mousecodeToEnum(button_event.*.detail),
@@ -370,7 +370,7 @@ pub const Window = struct {
                 }
             },
             xcb.XCB_MOTION_NOTIFY => {
-                const motion_event = @ptrCast([*c]xcb.xcb_motion_notify_event_t, current);
+                const motion_event: [*c]xcb.xcb_motion_notify_event_t = @ptrCast(current);
                 return Event{
                     .MouseMove = Point{
                         .x = motion_event.*.event_x,
