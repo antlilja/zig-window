@@ -118,7 +118,7 @@ pub const Window = struct {
         _ = xcb.xcb_map_window(connection, window);
         _ = xcb.xcb_flush(connection);
 
-        var self = try allocator.create(Window);
+        const self = try allocator.create(Window);
         self.* = .{
             .width = width,
             .height = height,
