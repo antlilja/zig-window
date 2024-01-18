@@ -6,18 +6,12 @@ pub fn build(b: *Build) void {
     const target = b.standardTargetOptions(.{});
 
     const mod = b.addModule("zig-window", .{
-        .source_file = .{ .path = "src/main.zig" },
-    });
-
-    // TODO: This is a workaround until modules support linking to system libraries
-    const lib = b.addStaticLibrary(.{
-        .name = "zig-window",
+        .root_source_file = .{ .path = "src/main.zig" },
         .target = target,
         .optimize = optimize,
     });
-    lib.linkLibC();
-    lib.linkSystemLibrary("xcb");
-    b.installArtifact(lib);
+    mod.linkSystemLibrary("c", .{});
+    mod.linkSystemLibrary("xcb", .{});
 
     const example = b.addExecutable(.{
         .name = "zig-window-example",
@@ -25,8 +19,7 @@ pub fn build(b: *Build) void {
         .target = target,
         .optimize = optimize,
     });
-    example.addModule("zig-window", mod);
-    example.linkLibrary(lib);
+    example.root_module.addImport("zig-window", mod);
 
     const run_cmd = b.addRunArtifact(example);
     run_cmd.step.dependOn(b.getInstallStep());
