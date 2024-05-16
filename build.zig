@@ -6,7 +6,7 @@ pub fn build(b: *Build) void {
     const target = b.standardTargetOptions(.{});
 
     const mod = b.addModule("zig-window", .{
-        .root_source_file = .{ .path = "src/main.zig" },
+        .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -15,7 +15,7 @@ pub fn build(b: *Build) void {
 
     const example = b.addExecutable(.{
         .name = "zig-window-example",
-        .root_source_file = .{ .path = "example.zig" },
+        .root_source_file = b.path("example.zig"),
         .target = target,
         .optimize = optimize,
     });
