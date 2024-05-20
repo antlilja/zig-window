@@ -4,6 +4,7 @@ const base = @import("base.zig");
 const xcb = @import("xcb.zig");
 
 pub const Key = base.Key;
+pub const Mouse = base.Mouse;
 pub const Event = base.Event;
 pub const Rect = base.Rect;
 pub const Point = base.Point;
