@@ -2,6 +2,7 @@ const std = @import("std");
 
 pub usingnamespace @import("base.zig");
 const XcbContext = @import("XcbContext.zig");
+const Win32Context = @import("Win32Context.zig");
 
 const Context = @import("Context.zig");
 
@@ -11,6 +12,7 @@ pub fn init(allocator: std.mem.Allocator) !Context {
             std.c.dlopen("libxcb.so.1", 2) orelse return error.FailedToLoadFunctions,
             allocator,
         ),
+        .windows => try Win32Context.init(allocator),
         else => @compileError("Unsupported OS"),
     };
 }
