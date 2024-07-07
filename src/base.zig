@@ -122,8 +122,8 @@ pub const Mouse = enum {
 };
 
 pub const Point = struct {
-    x: i16,
-    y: i16,
+    x: u32,
+    y: u32,
 };
 
 pub const Rect = struct {
