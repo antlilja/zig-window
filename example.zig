@@ -16,14 +16,25 @@ fn handleEvent(_: ?*anyopaque, event: zw.Event) void {
     }
 }
 
-pub fn main() anyerror!void {
+pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
 
-    var window = try zw.Window.create("Example window", 960, 540, &handleEvent, null, gpa.allocator());
+    const context = try zw.init(gpa.allocator());
+    defer context.deinit();
+
+    const window = try context.createWindow(.{
+        .name = "Example window",
+        .width = 1920,
+        .height = 1080,
+        .event_handler = .{
+            .handle = null,
+            .handle_event_fn = @ptrCast(&handleEvent),
+        },
+    });
     defer window.destroy();
 
     while (window.isOpen()) {
-        window.handleEvents();
+        context.pollEvents();
     }
 }

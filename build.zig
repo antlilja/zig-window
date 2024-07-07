@@ -9,9 +9,8 @@ pub fn build(b: *Build) void {
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
+        .link_libc = true,
     });
-    mod.linkSystemLibrary("c", .{});
-    mod.linkSystemLibrary("xcb", .{});
 
     const example = b.addExecutable(.{
         .name = "zig-window-example",
@@ -20,6 +19,9 @@ pub fn build(b: *Build) void {
         .optimize = optimize,
     });
     example.root_module.addImport("zig-window", mod);
+    b.installArtifact(example);
+
+    b.default_step.dependOn(&example.step);
 
     const run_cmd = b.addRunArtifact(example);
     run_cmd.step.dependOn(b.getInstallStep());
