@@ -79,6 +79,11 @@ extern fn DefWindowProcA(hwnd: ?*anyopaque, msg: u32, wparam: u64, lparam: i64) 
 extern fn GetWindowLongPtrA(hwnd: ?*anyopaque, index: c_int) ?*anyopaque;
 extern fn MapVirtualKeyA(code: u32, map_type: u32) callconv(.C) u32;
 
+const required_vulkan_extensions = [_][*:0]const u8{
+    "VK_KHR_surface",
+    "VK_KHR_win32_surface",
+};
+
 instance: *anyopaque,
 
 allocator: std.mem.Allocator,
@@ -105,6 +110,7 @@ pub fn init(allocator: std.mem.Allocator) !Context {
         .deinit_fn = @ptrCast(&deinit),
         .poll_events_fn = @ptrCast(&pollEvents),
         .create_window_fn = @ptrCast(&createWindow),
+        .required_vulkan_instance_extensions_fn = @ptrCast(&requiredVulkanInstanceExtensions),
     };
 }
 
@@ -136,7 +142,12 @@ pub fn createWindow(self: *Self, config: Window.Config) Error!Window {
         .handle = @ptrCast(window),
         .is_open_fn = @ptrCast(&Win32Window.isOpen),
         .destroy_fn = @ptrCast(&Win32Window.destroy),
+        .create_vulkan_surface_fn = @ptrCast(&Win32Window.createVulkanSurface),
     };
+}
+
+pub fn requiredVulkanInstanceExtensions(_: *const Self) []const [*:0]const u8 {
+    return &required_vulkan_extensions;
 }
 
 fn windowProc(hwnd: ?*anyopaque, msg: MessageId, wparam: u64, lparam: i64) callconv(.C) usize {

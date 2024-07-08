@@ -201,6 +201,11 @@ const FOCUS_OUT: c_int = 10;
 const CLIENT_MESSAGE: c_int = 33;
 const CONFIGURE_NOTIFY: c_int = 22;
 
+const required_vulkan_extensions = [_][*:0]const u8{
+    "VK_KHR_surface",
+    "VK_KHR_xcb_surface",
+};
+
 connect_fn: *const fn (displayname: ?[*:0]const u8, screenp: ?[*:0]c_int) callconv(.C) ?*Connection,
 disconnect_fn: *const fn (connection: *Connection) callconv(.C) void,
 connection_has_error_fn: *const fn (connection: *Connection) callconv(.C) c_int,
@@ -309,6 +314,7 @@ pub fn init(
         .deinit_fn = @ptrCast(&deinit),
         .poll_events_fn = @ptrCast(&pollEvents),
         .create_window_fn = @ptrCast(&createWindow),
+        .required_vulkan_instance_extensions_fn = @ptrCast(&requiredVulkanInstanceExtensions),
     };
 }
 
@@ -338,7 +344,12 @@ pub fn createWindow(
         .handle = @ptrCast(window),
         .is_open_fn = @ptrCast(&XcbWindow.isOpen),
         .destroy_fn = @ptrCast(&XcbWindow.destroy),
+        .create_vulkan_surface_fn = @ptrCast(&XcbWindow.createVulkanSurface),
     };
+}
+
+pub fn requiredVulkanInstanceExtensions(_: *const Self) []const [*:0]const u8 {
+    return &required_vulkan_extensions;
 }
 
 pub fn pollEvents(self: *Self) void {

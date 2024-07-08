@@ -124,3 +124,42 @@ pub fn destroy(self: *Self) void {
 pub fn isOpen(self: *const Self) bool {
     return self.is_open;
 }
+
+pub fn createVulkanSurface(
+    self: *const Self,
+    instance: *const anyopaque,
+    get_instance_proc_addr_fn: *const Window.GetInstanceProcAddrFn,
+    allocation_callbacks: ?*const anyopaque,
+) Window.VulkanSurfaceError!*anyopaque {
+    const CreateInfo = extern struct {
+        s_type: c_int = 1000009000,
+        p_next: ?*anyopaque = null,
+        flags: c_int = 0,
+        hinstance: *anyopaque,
+        hwnd: *anyopaque,
+    };
+    const create_surface_func: *const fn (
+        *const anyopaque,
+        *const CreateInfo,
+        ?*const anyopaque,
+        **anyopaque,
+    ) c_int = @ptrCast(get_instance_proc_addr_fn(
+        instance,
+        "vkCreateWin32SurfaceKHR",
+    ) orelse return error.FailedToLoadFunction);
+
+    const create_info = CreateInfo{
+        .hinstance = self.context.instance,
+        .hwnd = self.hwnd,
+    };
+
+    var surface: *anyopaque = undefined;
+    if (create_surface_func(
+        instance,
+        &create_info,
+        allocation_callbacks,
+        &surface,
+    ) != 0) return error.FailedToCreateSurface;
+
+    return surface;
+}
