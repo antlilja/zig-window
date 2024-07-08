@@ -169,7 +169,7 @@ fn windowProc(hwnd: ?*anyopaque, msg: MessageId, wparam: u64, lparam: i64) callc
         },
         .mouse_move => {
             const coords: u64 = @bitCast(lparam);
-            const word: u32 = @truncate(coords >> 32);
+            const word: u32 = @truncate(coords);
             const x: u16 = @truncate(word);
             const y: u16 = @truncate(word >> 16);
             window.event_handler.handleEvent(.{ .MouseMove = .{
