@@ -165,6 +165,7 @@ fn windowProc(hwnd: ?*anyopaque, msg: MessageId, wparam: u64, lparam: i64) callc
         .close => {
             window.is_open = false;
             window.event_handler.handleEvent(.Destroy);
+            return 0;
         },
         .mouse_move => {
             const coords: u64 = @bitCast(lparam);
