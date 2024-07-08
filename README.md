@@ -1,7 +1,7 @@
 # zig-window
 A work in progress zig window library
 
-Currently only supports linux through XCB.
+Currently only supports linux X11 and Windows.
 
 ## Example:
 ```zig
