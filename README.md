@@ -10,15 +10,15 @@ const zw = @import("zig-window");
 
 fn handleEvent(_: ?*anyopaque, event: zw.Event) void {
     switch (event) {
-        .Destroy => std.log.info("Window destroyed\n", .{}),
-        .FocusIn => std.log.info("Focus in\n", .{}),
-        .FocusOut => std.log.info("Focus out\n", .{}),
-        .Resize => |value| std.log.info("Resize: {}, {}\n", .{ value.width, value.height }),
-        .KeyPress => |value| std.log.info("Key pressed: {}\n", .{value}),
-        .KeyRelease => |value| std.log.info("Key released: {}\n", .{value}),
-        .MouseScrollV => |value| std.log.info("Mouse scroll vertical: {}\n", .{value}),
-        .MousePress => |value| std.log.info("{} pressed\n", .{value}),
-        .MouseRelease => |value| std.log.info("{} released\n", .{value}),
+        .Destroy => std.log.info("Window destroyed", .{}),
+        .FocusIn => std.log.info("Focus in", .{}),
+        .FocusOut => std.log.info("Focus out", .{}),
+        .Resize => |value| std.log.info("Resize: {}, {}", .{ value.width, value.height }),
+        .KeyPress => |value| std.log.info("Key pressed: {}", .{value}),
+        .KeyRelease => |value| std.log.info("Key released: {}", .{value}),
+        .MouseScrollV => |value| std.log.info("Mouse scroll vertical: {}", .{value}),
+        .MousePress => |value| std.log.info("{} pressed", .{value}),
+        .MouseRelease => |value| std.log.info("{} released", .{value}),
         else => {},
     }
 }
