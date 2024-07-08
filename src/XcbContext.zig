@@ -189,6 +189,19 @@ pub const MotionNotifyEvent = extern struct {
     pad0: u8,
 };
 
+const ResponseType = enum(i16) {
+    key_press = 2,
+    key_release = 3,
+    button_press = 4,
+    button_release = 5,
+    motion_notify = 6,
+    focus_in = 9,
+    focus_out = 10,
+    configure_notify = 22,
+    client_message = 33,
+    _,
+};
+
 const Self = @This();
 
 const KEY_PRESS: c_int = 2;
@@ -312,8 +325,8 @@ pub fn init(
     return .{
         .handle = @ptrCast(self),
         .deinit_fn = @ptrCast(&deinit),
-        .poll_events_fn = @ptrCast(&pollEvents),
         .create_window_fn = @ptrCast(&createWindow),
+        .poll_events_fn = @ptrCast(&pollEvents),
         .required_vulkan_instance_extensions_fn = @ptrCast(&requiredVulkanInstanceExtensions),
     };
 }
@@ -372,19 +385,19 @@ fn proccessEvent(
     current: *GenericEvent,
     next: ?*GenericEvent,
 ) void {
-    switch (@as(i16, @intCast(current.*.response_type)) & (-0x80 - 1)) {
-        CLIENT_MESSAGE => {
+    switch (enumFromResponseType(current.response_type)) {
+        .client_message => {
             const client_event: *ClientMessageEvent = @ptrCast(current);
-            if (self.windows.get(client_event.*.window)) |window| {
+            if (self.windows.get(client_event.window)) |window| {
                 if (client_event.*.data.data32[0] == window.delete_window_atom) {
                     window.is_open = false;
                     window.event_handler.handleEvent(.Destroy);
                 }
             }
         },
-        CONFIGURE_NOTIFY => {
+        .configure_notify => {
             const config_event: *ConfigureNotifyEvent = @ptrCast(current);
-            if (self.windows.get(config_event.*.window)) |window| {
+            if (self.windows.get(config_event.window)) |window| {
                 if (config_event.width != window.width or config_event.height != window.height) {
                     window.width = config_event.width;
                     window.height = config_event.height;
@@ -395,15 +408,15 @@ fn proccessEvent(
                 }
             }
         },
-        FOCUS_IN => {
+        .focus_in => {
             const focus_event: *FocusEvent = @ptrCast(current);
-            if (self.windows.get(focus_event.*.window)) |window| window.event_handler.handleEvent(.FocusIn);
+            if (self.windows.get(focus_event.window)) |window| window.event_handler.handleEvent(.FocusIn);
         },
-        FOCUS_OUT => {
+        .focus_out => {
             const focus_event: *FocusEvent = @ptrCast(current);
-            if (self.windows.get(focus_event.*.window)) |window| window.event_handler.handleEvent(.FocusOut);
+            if (self.windows.get(focus_event.window)) |window| window.event_handler.handleEvent(.FocusOut);
         },
-        KEY_PRESS => {
+        .key_press => {
             const key_event: *KeyEvent = @ptrCast(current);
             if (self.windows.get(key_event.window)) |window| blk: {
                 if (window.last_key_time >= key_event.time) {
@@ -412,13 +425,13 @@ fn proccessEvent(
                 }
                 window.last_key_time = key_event.time;
                 window.event_handler.handleEvent(.{
-                    .KeyPress = keycodeToEnum(key_event.detail),
+                    .KeyPress = enumFromKeycode(key_event.detail),
                 });
             }
         },
-        KEY_RELEASE => {
+        .key_release => {
             const key_event: *KeyEvent = @ptrCast(current);
-            if (self.windows.get(key_event.*.window)) |window| blk: {
+            if (self.windows.get(key_event.window)) |window| blk: {
                 const maybe_next_event: ?*KeyEvent = @ptrCast(next);
                 if (maybe_next_event) |next_event| {
                     if (((@as(i16, @intCast(next_event.response_type)) & (-0x80 - 1)) == KEY_PRESS) and
@@ -432,35 +445,35 @@ fn proccessEvent(
                 }
                 window.last_key_time = key_event.time;
                 window.event_handler.handleEvent(.{
-                    .KeyRelease = keycodeToEnum(key_event.detail),
+                    .KeyRelease = enumFromKeycode(key_event.detail),
                 });
             }
         },
-        BUTTON_PRESS => {
+        .button_press => {
             const button_event: *ButtonEvent = @ptrCast(current);
-            if (self.windows.get(button_event.*.window)) |window| {
+            if (self.windows.get(button_event.window)) |window| {
                 window.event_handler.handleEvent(switch (button_event.detail) {
                     4 => .{ .MouseScrollV = 1 },
                     5 => .{ .MouseScrollV = -1 },
                     6 => .{ .MouseScrollH = 1 },
                     7 => .{ .MouseScrollH = -1 },
-                    else => .{ .MousePress = mousecodeToEnum(button_event.detail) },
+                    else => .{ .MousePress = enumFromMousecode(button_event.detail) },
                 });
             }
         },
-        BUTTON_RELEASE => {
+        .button_release => {
             const button_event: *ButtonEvent = @ptrCast(current);
-            if (self.windows.get(button_event.*.window)) |window| {
+            if (self.windows.get(button_event.window)) |window| {
                 if (button_event.detail != 4 and button_event.detail != 5) {
                     window.event_handler.handleEvent(.{
-                        .MouseRelease = mousecodeToEnum(button_event.detail),
+                        .MouseRelease = enumFromMousecode(button_event.detail),
                     });
                 }
             }
         },
-        MOTION_NOTIFY => {
+        .motion_notify => {
             const motion_event: *MotionNotifyEvent = @ptrCast(current);
-            if (self.windows.get(motion_event.*.window)) |window| {
+            if (self.windows.get(motion_event.window)) |window| {
                 window.event_handler.handleEvent(.{
                     .MouseMove = Point{
                         .x = @intCast(motion_event.event_x),
@@ -473,7 +486,11 @@ fn proccessEvent(
     }
 }
 
-fn keycodeToEnum(code: u8) Key {
+fn enumFromResponseType(ty: u8) ResponseType {
+    return @enumFromInt(@as(i16, @intCast(ty)) & (-0x80 - 1));
+}
+
+fn enumFromKeycode(code: u8) Key {
     return switch (code) {
         19 => Key.zero,
         10 => Key.one,
@@ -583,7 +600,7 @@ fn keycodeToEnum(code: u8) Key {
     };
 }
 
-fn mousecodeToEnum(code: u8) Mouse {
+fn enumFromMousecode(code: u8) Mouse {
     return switch (code) {
         1 => Mouse.left,
         2 => Mouse.middle,
