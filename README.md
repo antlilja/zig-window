@@ -13,7 +13,10 @@ fn handleEvent(_: ?*anyopaque, event: zw.Event) void {
         .Destroy => std.log.info("Window destroyed", .{}),
         .FocusIn => std.log.info("Focus in", .{}),
         .FocusOut => std.log.info("Focus out", .{}),
-        .Resize => |value| std.log.info("Resize: {}, {}", .{ value.width, value.height }),
+        .Resize => |size| {
+            const width, const height = size;
+            std.log.info("Resize: {}, {}", .{ width, height });
+        },
         .KeyPress => |value| std.log.info("Key pressed: {}", .{value}),
         .KeyRelease => |value| std.log.info("Key released: {}", .{value}),
         .MouseScrollV => |value| std.log.info("Mouse scroll vertical: {}", .{value}),

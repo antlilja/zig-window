@@ -1,7 +1,6 @@
 const std = @import("std");
 
-const Error = @import("base.zig").Error;
-
+const Context = @import("Context.zig");
 const EventHandler = @import("EventHandler.zig");
 const Window = @import("Window.zig");
 
@@ -71,7 +70,7 @@ pub fn create(
     context: *const XcbContext,
     config: Window.Config,
     allocator: std.mem.Allocator,
-) Error!*Self {
+) Context.CreateWindowError!*Self {
     const screen = context.setup_roots_iterator_fn(context.get_setup_fn(context.connection)).data;
 
     const mask = CW_BACK_PIXEL | CW_EVENT_MASK;

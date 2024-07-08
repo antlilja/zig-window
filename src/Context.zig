@@ -1,9 +1,12 @@
 const std = @import("std");
 
-const Error = @import("base.zig").Error;
-
 const EventHandler = @import("EventHandler.zig");
 const Window = @import("Window.zig");
+
+pub const CreateWindowError = error{
+    OutOfMemory,
+    FailedToCreateWindow,
+};
 
 const Self = @This();
 
@@ -11,7 +14,7 @@ handle: *anyopaque,
 
 deinit_fn: *const fn (*anyopaque) void,
 
-create_window_fn: *const fn (*anyopaque, Window.Config) Error!Window,
+create_window_fn: *const fn (*anyopaque, Window.Config) CreateWindowError!Window,
 
 poll_events_fn: *const fn (*anyopaque) void,
 
@@ -24,7 +27,7 @@ pub fn deinit(self: Self) void {
 pub fn createWindow(
     self: Self,
     config: Window.Config,
-) Error!Window {
+) CreateWindowError!Window {
     return self.create_window_fn(self.handle, config);
 }
 

@@ -1,7 +1,6 @@
 const std = @import("std");
 
-const Error = @import("base.zig").Error;
-
+const Context = @import("Context.zig");
 const EventHandler = @import("EventHandler.zig");
 const Window = @import("Window.zig");
 
@@ -57,7 +56,7 @@ hwnd: *anyopaque,
 pub fn create(
     context: *const Win32Context,
     config: Window.Config,
-) Error!*Self {
+) Context.CreateWindowError!*Self {
     const name_z = try context.allocator.dupeZ(u8, config.name);
     defer context.allocator.free(name_z);
 
