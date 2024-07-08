@@ -24,6 +24,8 @@ handle: *anyopaque,
 is_open_fn: *const fn (*anyopaque) bool,
 destroy_fn: *const fn (*anyopaque) void,
 
+get_size_fn: *const fn (*anyopaque) struct { u32, u32 },
+
 create_vulkan_surface_fn: *const fn (
     *anyopaque,
     *anyopaque,
@@ -37,6 +39,10 @@ pub fn isOpen(self: Self) bool {
 
 pub fn destroy(self: Self) void {
     self.destroy_fn(self.handle);
+}
+
+pub fn getSize(self: Self) struct { u32, u32 } {
+    return self.get_size_fn(self.handle);
 }
 
 pub fn createVulkanSurface(

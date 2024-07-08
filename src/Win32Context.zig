@@ -142,6 +142,7 @@ pub fn createWindow(self: *Self, config: Window.Config) Error!Window {
         .handle = @ptrCast(window),
         .is_open_fn = @ptrCast(&Win32Window.isOpen),
         .destroy_fn = @ptrCast(&Win32Window.destroy),
+        .get_size_fn = @ptrCast(&Win32Window.getSize),
         .create_vulkan_surface_fn = @ptrCast(&Win32Window.createVulkanSurface),
     };
 }

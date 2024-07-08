@@ -125,6 +125,10 @@ pub fn isOpen(self: *const Self) bool {
     return self.is_open;
 }
 
+pub fn getSize(self: *const Self) struct { u32, u32 } {
+    return .{ self.width, self.height };
+}
+
 pub fn createVulkanSurface(
     self: *const Self,
     instance: *const anyopaque,

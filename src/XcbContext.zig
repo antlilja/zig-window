@@ -344,6 +344,7 @@ pub fn createWindow(
         .handle = @ptrCast(window),
         .is_open_fn = @ptrCast(&XcbWindow.isOpen),
         .destroy_fn = @ptrCast(&XcbWindow.destroy),
+        .get_size_fn = @ptrCast(&XcbWindow.getSize),
         .create_vulkan_surface_fn = @ptrCast(&XcbWindow.createVulkanSurface),
     };
 }
