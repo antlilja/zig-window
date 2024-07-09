@@ -211,6 +211,8 @@ const required_vulkan_extensions = [_][*:0]const u8{
     "VK_KHR_xcb_surface",
 };
 
+library: *anyopaque,
+
 connect_fn: *const fn (displayname: ?[*:0]const u8, screenp: ?[*:0]c_int) callconv(.C) ?*Connection,
 disconnect_fn: *const fn (connection: *Connection) callconv(.C) void,
 connection_has_error_fn: *const fn (connection: *Connection) callconv(.C) c_int,
@@ -275,35 +277,37 @@ windows: std.AutoHashMapUnmanaged(u32, *XcbWindow),
 connection: *Connection,
 
 pub fn init(
-    handle: *anyopaque,
+    library: *anyopaque,
     allocator: std.mem.Allocator,
 ) !Context {
     const self = try allocator.create(Self);
     errdefer allocator.destroy(self);
 
-    self.connect_fn = @ptrCast(std.c.dlsym(handle, "xcb_connect") orelse return error.FailedToLoadFunction);
-    self.disconnect_fn = @ptrCast(std.c.dlsym(handle, "xcb_disconnect") orelse return error.FailedToLoadFunction);
-    self.connection_has_error_fn = @ptrCast(std.c.dlsym(handle, "xcb_connection_has_error") orelse return error.FailedToLoadFunction);
+    self.library = library;
 
-    self.get_setup_fn = @ptrCast(std.c.dlsym(handle, "xcb_get_setup") orelse return error.FailedToLoadFunction);
-    self.setup_roots_iterator_fn = @ptrCast(std.c.dlsym(handle, "xcb_setup_roots_iterator") orelse return error.FailedToLoadFunction);
+    self.connect_fn = @ptrCast(std.c.dlsym(library, "xcb_connect") orelse return error.FailedToLoadFunction);
+    self.disconnect_fn = @ptrCast(std.c.dlsym(library, "xcb_disconnect") orelse return error.FailedToLoadFunction);
+    self.connection_has_error_fn = @ptrCast(std.c.dlsym(library, "xcb_connection_has_error") orelse return error.FailedToLoadFunction);
 
-    self.generate_id_fn = @ptrCast(std.c.dlsym(handle, "xcb_generate_id") orelse return error.FailedToLoadFunction);
+    self.get_setup_fn = @ptrCast(std.c.dlsym(library, "xcb_get_setup") orelse return error.FailedToLoadFunction);
+    self.setup_roots_iterator_fn = @ptrCast(std.c.dlsym(library, "xcb_setup_roots_iterator") orelse return error.FailedToLoadFunction);
 
-    self.create_window_fn = @ptrCast(std.c.dlsym(handle, "xcb_create_window") orelse return error.FailedToLoadFunction);
-    self.destroy_window_fn = @ptrCast(std.c.dlsym(handle, "xcb_destroy_window") orelse return error.FailedToLoadFunction);
+    self.generate_id_fn = @ptrCast(std.c.dlsym(library, "xcb_generate_id") orelse return error.FailedToLoadFunction);
 
-    self.map_window_fn = @ptrCast(std.c.dlsym(handle, "xcb_map_window") orelse return error.FailedToLoadFunction);
-    self.unmap_window_fn = @ptrCast(std.c.dlsym(handle, "xcb_unmap_window") orelse return error.FailedToLoadFunction);
+    self.create_window_fn = @ptrCast(std.c.dlsym(library, "xcb_create_window") orelse return error.FailedToLoadFunction);
+    self.destroy_window_fn = @ptrCast(std.c.dlsym(library, "xcb_destroy_window") orelse return error.FailedToLoadFunction);
 
-    self.poll_for_event_fn = @ptrCast(std.c.dlsym(handle, "xcb_poll_for_event") orelse return error.FailedToLoadFunction);
+    self.map_window_fn = @ptrCast(std.c.dlsym(library, "xcb_map_window") orelse return error.FailedToLoadFunction);
+    self.unmap_window_fn = @ptrCast(std.c.dlsym(library, "xcb_unmap_window") orelse return error.FailedToLoadFunction);
 
-    self.intern_atom_fn = @ptrCast(std.c.dlsym(handle, "xcb_intern_atom") orelse return error.FailedToLoadFunction);
-    self.intern_atom_reply_fn = @ptrCast(std.c.dlsym(handle, "xcb_intern_atom_reply") orelse return error.FailedToLoadFunction);
+    self.poll_for_event_fn = @ptrCast(std.c.dlsym(library, "xcb_poll_for_event") orelse return error.FailedToLoadFunction);
 
-    self.change_property_fn = @ptrCast(std.c.dlsym(handle, "xcb_change_property") orelse return error.FailedToLoadFunction);
+    self.intern_atom_fn = @ptrCast(std.c.dlsym(library, "xcb_intern_atom") orelse return error.FailedToLoadFunction);
+    self.intern_atom_reply_fn = @ptrCast(std.c.dlsym(library, "xcb_intern_atom_reply") orelse return error.FailedToLoadFunction);
 
-    self.flush_fn = @ptrCast(std.c.dlsym(handle, "xcb_flush") orelse return error.FailedToLoadFunction);
+    self.change_property_fn = @ptrCast(std.c.dlsym(library, "xcb_change_property") orelse return error.FailedToLoadFunction);
+
+    self.flush_fn = @ptrCast(std.c.dlsym(library, "xcb_flush") orelse return error.FailedToLoadFunction);
 
     self.allocator = allocator;
 
@@ -326,6 +330,7 @@ pub fn init(
 pub fn deinit(self: *Self) void {
     self.disconnect_fn(self.connection);
     self.windows.deinit(self.allocator);
+    _ = std.c.dlclose(self.library);
     self.allocator.destroy(self);
 }
 
