@@ -60,7 +60,20 @@ pub fn create(
     const name_z = try context.allocator.dupeZ(u8, config.name);
     defer context.allocator.free(name_z);
 
-    const style = if (config.resizable) WS_VISIBLE | WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX else WS_VISIBLE | WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
+    const style = if (config.resizable)
+        WS_VISIBLE |
+            WS_OVERLAPPED |
+            WS_CAPTION |
+            WS_SYSMENU |
+            WS_THICKFRAME |
+            WS_MINIMIZEBOX |
+            WS_MAXIMIZEBOX
+    else
+        WS_VISIBLE |
+            WS_OVERLAPPED |
+            WS_CAPTION |
+            WS_SYSMENU |
+            WS_MINIMIZEBOX;
 
     var rect = Rect{
         .left = 0,
@@ -131,7 +144,7 @@ pub fn getSize(self: *const Self) struct { u32, u32 } {
 pub fn createVulkanSurface(
     self: *const Self,
     instance: *const anyopaque,
-    get_instance_proc_addr_fn: *const Window.GetInstanceProcAddrFn,
+    get_instance_proc_addr: *const Window.GetInstanceProcAddrFn,
     allocation_callbacks: ?*const anyopaque,
 ) Window.VulkanSurfaceError!*anyopaque {
     const CreateInfo = extern struct {
@@ -141,12 +154,12 @@ pub fn createVulkanSurface(
         hinstance: *anyopaque,
         hwnd: *anyopaque,
     };
-    const create_surface_func: *const fn (
+    const create_surface: *const fn (
         *const anyopaque,
         *const CreateInfo,
         ?*const anyopaque,
         **anyopaque,
-    ) c_int = @ptrCast(get_instance_proc_addr_fn(
+    ) c_int = @ptrCast(get_instance_proc_addr(
         instance,
         "vkCreateWin32SurfaceKHR",
     ) orelse return error.FailedToLoadFunction);
@@ -157,7 +170,7 @@ pub fn createVulkanSurface(
     };
 
     var surface: *anyopaque = undefined;
-    if (create_surface_func(
+    if (create_surface(
         instance,
         &create_info,
         allocation_callbacks,
