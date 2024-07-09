@@ -4,317 +4,56 @@ const Context = @import("Context.zig");
 const EventHandler = @import("EventHandler.zig");
 const Window = @import("Window.zig");
 
+const xcb = @import("xcb/base.zig");
+
 const XcbWindow = @import("XcbWindow.zig");
 
-pub const Connection = opaque {};
-
-pub const Screen = extern struct {
-    root: u32,
-    default_colormap: u32,
-    white_pixel: u32,
-    black_pixel: u32,
-    current_input_masks: u32,
-    width_in_pixels: u16,
-    height_in_pixels: u16,
-    width_in_millimeters: u16,
-    height_in_millimeters: u16,
-    min_installed_maps: u16,
-    max_installed_maps: u16,
-    root_visual: u32,
-    backing_stores: u8,
-    save_unders: u8,
-    root_depth: u8,
-    allowed_depths_len: u8,
-};
-
-pub const ScreenIterator = extern struct {
-    data: *Screen,
-    rem: c_int,
-    index: c_int,
-};
-
-pub const Setup = extern struct {
-    status: u8,
-    pad0: u8,
-    protocol_major_version: u16,
-    protocol_minor_version: u16,
-    length: u16,
-    release_number: u32,
-    resource_id_base: u32,
-    resource_id_mask: u32,
-    motion_buffer_size: u32,
-    vendor_len: u16,
-    maximum_request_length: u16,
-    roots_len: u8,
-    pixmap_formats_len: u8,
-    image_byte_order: u8,
-    bitmap_format_bit_order: u8,
-    bitmap_format_scanline_unit: u8,
-    bitmap_format_scanline_pad: u8,
-    min_keycode: u8,
-    max_keycode: u8,
-    pad1: [4]u8,
-};
-
-pub const VoidCookie = extern struct {
-    sequence: c_uint,
-};
-
-pub const InternAtomCookie = extern struct {
-    sequence: c_uint,
-};
-
-pub const InternAtomReply = extern struct {
-    response_type: u8,
-    pad0: u8,
-    sequence: u16,
-    length: u32,
-    atom: u32,
-};
-
-pub const GenericError = extern struct {
-    response_type: u8,
-    error_code: u8,
-    sequence: u16,
-    resource_id: u32,
-    minor_code: u16,
-    major_code: u8,
-    pad0: u8,
-    pad: [5]u32,
-    full_sequence: u32,
-};
-
-pub const GenericEvent = extern struct {
-    response_type: u8,
-    pad0: u8,
-    sequence: u16,
-    pad: [7]u32,
-    full_sequence: u32,
-};
-
-pub const FocusEvent = extern struct {
-    response_type: u8,
-    detail: u8,
-    sequence: u16,
-    window: u32,
-    mode: u8,
-    pad0: [3]u8,
-};
-
-pub const ClientMessageEvent = extern struct {
-    response_type: u8,
-    format: u8,
-    sequence: u16,
-    window: u32,
-    type: u32,
-    data: extern union {
-        data8: [20]u8,
-        data16: [10]u16,
-        data32: [5]u32,
-    },
-};
-
-pub const ConfigureNotifyEvent = extern struct {
-    response_type: u8,
-    pad0: u8,
-    sequence: u16,
-    event: u32,
-    window: u32,
-    above_sibling: u32,
-    x: i16,
-    y: i16,
-    width: u16,
-    height: u16,
-    border_width: u16,
-    override_redirect: u8,
-    pad1: u8,
-};
-
-pub const KeyEvent = extern struct {
-    response_type: u8,
-    detail: u8,
-    sequence: u16,
-    time: u32,
-    root: u32,
-    window: u32,
-    child: u32,
-    root_x: i16,
-    root_y: i16,
-    event_x: i16,
-    event_y: i16,
-    state: u16,
-    same_screen: u8,
-    pad0: u8,
-};
-
-pub const ButtonEvent = extern struct {
-    response_type: u8,
-    detail: u8,
-    sequence: u16,
-    time: u32,
-    root: u32,
-    window: u32,
-    child: u32,
-    root_x: i16,
-    root_y: i16,
-    event_x: i16,
-    event_y: i16,
-    state: u16,
-    same_screen: u8,
-    pad0: u8,
-};
-
-pub const MotionNotifyEvent = extern struct {
-    response_type: u8,
-    detail: u8,
-    sequence: u16,
-    time: u32,
-    root: u32,
-    window: u32,
-    child: u32,
-    root_x: i16,
-    root_y: i16,
-    event_x: i16,
-    event_y: i16,
-    state: u16,
-    same_screen: u8,
-    pad0: u8,
-};
-
-const ResponseType = enum(i16) {
-    key_press = 2,
-    key_release = 3,
-    button_press = 4,
-    button_release = 5,
-    motion_notify = 6,
-    focus_in = 9,
-    focus_out = 10,
-    configure_notify = 22,
-    client_message = 33,
-    _,
-};
-
 const Self = @This();
-
-const KEY_PRESS: c_int = 2;
-const KEY_RELEASE: c_int = 3;
-const BUTTON_PRESS: c_int = 4;
-const BUTTON_RELEASE: c_int = 5;
-const MOTION_NOTIFY: c_int = 6;
-const FOCUS_IN: c_int = 9;
-const FOCUS_OUT: c_int = 10;
-const CLIENT_MESSAGE: c_int = 33;
-const CONFIGURE_NOTIFY: c_int = 22;
 
 const required_vulkan_extensions = [_][*:0]const u8{
     "VK_KHR_surface",
     "VK_KHR_xcb_surface",
 };
 
-library: *anyopaque,
-
-connect_fn: *const fn (displayname: ?[*:0]const u8, screenp: ?[*:0]c_int) callconv(.C) ?*Connection,
-disconnect_fn: *const fn (connection: *Connection) callconv(.C) void,
-connection_has_error_fn: *const fn (connection: *Connection) callconv(.C) c_int,
-
-get_setup_fn: *const fn (connection: *Connection) callconv(.C) *const Setup,
-setup_roots_iterator_fn: *const fn (root: *const Setup) callconv(.C) ScreenIterator,
-
-generate_id_fn: *const fn (connection: *Connection) callconv(.C) u32,
-
-create_window_fn: *const fn (
-    connection: *Connection,
-    depth: u8,
-    wid: u32,
-    parent: u32,
-    x: i16,
-    y: i16,
-    width: u16,
-    height: u16,
-    border_width: u16,
-    _class: u16,
-    visual: u32,
-    value_mask: u32,
-    value_list: ?*const anyopaque,
-) callconv(.C) VoidCookie,
-destroy_window_fn: *const fn (connection: *Connection, window: u32) callconv(.C) VoidCookie,
-
-map_window_fn: *const fn (connection: *Connection, window: u32) callconv(.C) VoidCookie,
-unmap_window_fn: *const fn (connection: *Connection, window: u32) callconv(.C) VoidCookie,
-
-poll_for_event_fn: *const fn (connection: *Connection) callconv(.C) ?*GenericEvent,
-
-intern_atom_fn: *const fn (
-    connection: *Connection,
-    only_if_exists: u8,
-    name_len: u16,
-    name: [*:0]const u8,
-) callconv(.C) InternAtomCookie,
-
-intern_atom_reply_fn: *const fn (
-    connection: *Connection,
-    cookie: InternAtomCookie,
-    e: ?*GenericError,
-) callconv(.C) *InternAtomReply,
-
-change_property_fn: *const fn (
-    connection: *Connection,
-    mode: u8,
-    window: u32,
-    property: u32,
-    @"type": u32,
-    format: u8,
-    data_len: u32,
-    data: ?*const anyopaque,
-) callconv(.C) VoidCookie,
-
-flush_fn: *const fn (connection: *Connection) callconv(.C) c_int,
-
 allocator: std.mem.Allocator,
 
 windows: std.AutoHashMapUnmanaged(u32, *XcbWindow),
 
-connection: *Connection,
+xcb_lib: xcb.Library,
 
-pub fn init(
-    library: *anyopaque,
-    allocator: std.mem.Allocator,
-) !Context {
+connection: *xcb.Connection,
+
+fn load(comptime Library: type, comptime prefix: []const u8, lib_name: [*:0]const u8) ?Library {
+    var library: Library = undefined;
+    library.handle = std.c.dlopen(lib_name, 0x2 | 0x100) orelse return null;
+    inline for (@typeInfo(Library).Struct.fields) |field| {
+        if (!std.mem.eql(u8, "handle", field.name)) {
+            @field(library, field.name) = @ptrCast(std.c.dlsym(
+                library.handle,
+                prefix ++ field.name,
+            ) orelse return null);
+        }
+    }
+    return library;
+}
+
+pub fn init(allocator: std.mem.Allocator) !Context {
     const self = try allocator.create(Self);
     errdefer allocator.destroy(self);
 
-    self.library = library;
-
-    self.connect_fn = @ptrCast(std.c.dlsym(library, "xcb_connect") orelse return error.FailedToLoadFunction);
-    self.disconnect_fn = @ptrCast(std.c.dlsym(library, "xcb_disconnect") orelse return error.FailedToLoadFunction);
-    self.connection_has_error_fn = @ptrCast(std.c.dlsym(library, "xcb_connection_has_error") orelse return error.FailedToLoadFunction);
-
-    self.get_setup_fn = @ptrCast(std.c.dlsym(library, "xcb_get_setup") orelse return error.FailedToLoadFunction);
-    self.setup_roots_iterator_fn = @ptrCast(std.c.dlsym(library, "xcb_setup_roots_iterator") orelse return error.FailedToLoadFunction);
-
-    self.generate_id_fn = @ptrCast(std.c.dlsym(library, "xcb_generate_id") orelse return error.FailedToLoadFunction);
-
-    self.create_window_fn = @ptrCast(std.c.dlsym(library, "xcb_create_window") orelse return error.FailedToLoadFunction);
-    self.destroy_window_fn = @ptrCast(std.c.dlsym(library, "xcb_destroy_window") orelse return error.FailedToLoadFunction);
-
-    self.map_window_fn = @ptrCast(std.c.dlsym(library, "xcb_map_window") orelse return error.FailedToLoadFunction);
-    self.unmap_window_fn = @ptrCast(std.c.dlsym(library, "xcb_unmap_window") orelse return error.FailedToLoadFunction);
-
-    self.poll_for_event_fn = @ptrCast(std.c.dlsym(library, "xcb_poll_for_event") orelse return error.FailedToLoadFunction);
-
-    self.intern_atom_fn = @ptrCast(std.c.dlsym(library, "xcb_intern_atom") orelse return error.FailedToLoadFunction);
-    self.intern_atom_reply_fn = @ptrCast(std.c.dlsym(library, "xcb_intern_atom_reply") orelse return error.FailedToLoadFunction);
-
-    self.change_property_fn = @ptrCast(std.c.dlsym(library, "xcb_change_property") orelse return error.FailedToLoadFunction);
-
-    self.flush_fn = @ptrCast(std.c.dlsym(library, "xcb_flush") orelse return error.FailedToLoadFunction);
-
     self.allocator = allocator;
 
-    self.connection = self.connect_fn(null, null) orelse return error.FailedToInitialize;
-    errdefer self.disconnect_fn(self.connection);
+    self.xcb_lib = load(
+        xcb.Library,
+        "xcb_",
+        "libxcb.so.1",
+    ) orelse return error.FailedToLoadFunction;
+    errdefer self.xcb_lib.deinit();
 
-    if (self.connection_has_error_fn(self.connection) != 0) return error.FailedToInitialize;
+    self.connection = self.xcb_lib.connect(null, null) orelse return error.FailedToInitialize;
+    errdefer self.xcb_lib.disconnect(self.connection);
+
+    if (self.xcb_lib.connection_has_error(self.connection) != 0) return error.FailedToInitialize;
 
     self.windows = .{};
 
@@ -328,9 +67,9 @@ pub fn init(
 }
 
 pub fn deinit(self: *Self) void {
-    self.disconnect_fn(self.connection);
+    self.xcb_lib.disconnect(self.connection);
+    self.xcb_lib.deinit();
     self.windows.deinit(self.allocator);
-    _ = std.c.dlclose(self.library);
     self.allocator.destroy(self);
 }
 
@@ -364,10 +103,10 @@ pub fn requiredVulkanInstanceExtensions(_: *const Self) []const [*:0]const u8 {
 }
 
 pub fn pollEvents(self: *Self) void {
-    var maybe_current = self.poll_for_event_fn(self.connection);
+    var maybe_current = self.xcb_lib.poll_for_event(self.connection);
 
     while (maybe_current) |current| {
-        const maybe_next = self.poll_for_event_fn(self.connection);
+        const maybe_next = self.xcb_lib.poll_for_event(self.connection);
         self.proccessEvent(
             current,
             maybe_next,
@@ -379,12 +118,12 @@ pub fn pollEvents(self: *Self) void {
 
 fn proccessEvent(
     self: *Self,
-    current: *GenericEvent,
-    next: ?*GenericEvent,
+    current: *xcb.GenericEvent,
+    next: ?*xcb.GenericEvent,
 ) void {
     switch (enumFromResponseType(current.response_type)) {
         .client_message => {
-            const client_event: *ClientMessageEvent = @ptrCast(current);
+            const client_event: *const xcb.ClientMessageEvent = @ptrCast(current);
             if (self.windows.get(client_event.window)) |window| {
                 if (client_event.*.data.data32[0] == window.delete_window_atom) {
                     window.is_open = false;
@@ -393,7 +132,7 @@ fn proccessEvent(
             }
         },
         .configure_notify => {
-            const config_event: *ConfigureNotifyEvent = @ptrCast(current);
+            const config_event: *const xcb.ConfigureNotifyEvent = @ptrCast(current);
             if (self.windows.get(config_event.window)) |window| {
                 if (config_event.width != window.width or config_event.height != window.height) {
                     window.width = config_event.width;
@@ -406,15 +145,15 @@ fn proccessEvent(
             }
         },
         .focus_in => {
-            const focus_event: *FocusEvent = @ptrCast(current);
+            const focus_event: *const xcb.FocusEvent = @ptrCast(current);
             if (self.windows.get(focus_event.window)) |window| window.event_handler.handleEvent(.FocusIn);
         },
         .focus_out => {
-            const focus_event: *FocusEvent = @ptrCast(current);
+            const focus_event: *const xcb.FocusEvent = @ptrCast(current);
             if (self.windows.get(focus_event.window)) |window| window.event_handler.handleEvent(.FocusOut);
         },
         .key_press => {
-            const key_event: *KeyEvent = @ptrCast(current);
+            const key_event: *const xcb.KeyEvent = @ptrCast(current);
             if (self.windows.get(key_event.window)) |window| blk: {
                 if (window.last_key_time >= key_event.time) {
                     window.last_key_time = key_event.time;
@@ -427,11 +166,11 @@ fn proccessEvent(
             }
         },
         .key_release => {
-            const key_event: *KeyEvent = @ptrCast(current);
+            const key_event: *const xcb.KeyEvent = @ptrCast(current);
             if (self.windows.get(key_event.window)) |window| blk: {
-                const maybe_next_event: ?*KeyEvent = @ptrCast(next);
+                const maybe_next_event: ?*const xcb.KeyEvent = @ptrCast(next);
                 if (maybe_next_event) |next_event| {
-                    if (((@as(i16, @intCast(next_event.response_type)) & (-0x80 - 1)) == KEY_PRESS) and
+                    if (enumFromResponseType(next_event.response_type) == .key_press and
                         (next_event.time - key_event.time) < 20 and
                         next_event.detail == key_event.detail and
                         next_event.window == key_event.window)
@@ -447,7 +186,7 @@ fn proccessEvent(
             }
         },
         .button_press => {
-            const button_event: *ButtonEvent = @ptrCast(current);
+            const button_event: *const xcb.ButtonEvent = @ptrCast(current);
             if (self.windows.get(button_event.window)) |window| {
                 window.event_handler.handleEvent(switch (button_event.detail) {
                     4 => .{ .MouseScrollV = 1 },
@@ -459,7 +198,7 @@ fn proccessEvent(
             }
         },
         .button_release => {
-            const button_event: *ButtonEvent = @ptrCast(current);
+            const button_event: *const xcb.ButtonEvent = @ptrCast(current);
             if (self.windows.get(button_event.window)) |window| {
                 if (button_event.detail != 4 and button_event.detail != 5) {
                     window.event_handler.handleEvent(.{
@@ -469,7 +208,7 @@ fn proccessEvent(
             }
         },
         .motion_notify => {
-            const motion_event: *MotionNotifyEvent = @ptrCast(current);
+            const motion_event: *const xcb.MotionNotifyEvent = @ptrCast(current);
             if (self.windows.get(motion_event.window)) |window| {
                 window.event_handler.handleEvent(.{
                     .MouseMove = .{
@@ -483,7 +222,7 @@ fn proccessEvent(
     }
 }
 
-fn enumFromResponseType(ty: u8) ResponseType {
+fn enumFromResponseType(ty: u8) xcb.ResponseType {
     return @enumFromInt(@as(i16, @intCast(ty)) & (-0x80 - 1));
 }
 
