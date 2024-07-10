@@ -120,6 +120,7 @@ pub fn init(allocator: std.mem.Allocator) !Context {
         .create_window_fn = @ptrCast(&createWindow),
         .get_monitors_fn = @ptrCast(&getMonitors),
         .required_vulkan_instance_extensions_fn = @ptrCast(&requiredVulkanInstanceExtensions),
+        .get_physical_device_presentation_support_fn = @ptrCast(&getPhysicalDevicePresentationSupport),
     };
 }
 
@@ -191,6 +192,27 @@ pub fn getMonitors(_: *Self, allocator: std.mem.Allocator) std.mem.Allocator.Err
 
 pub fn requiredVulkanInstanceExtensions(_: *const Self) []const [*:0]const u8 {
     return &required_vulkan_extensions;
+}
+
+pub fn getPhysicalDevicePresentationSupport(
+    _: *Self,
+    instance: *const anyopaque,
+    physical_device: *const anyopaque,
+    queue_family_index: u32,
+    get_instance_proc_addr: *const Context.GetInstanceProcAddrFn,
+) Context.VulkanGetPresentationSupportError!u32 {
+    const get_physical_device_presentation_support: *const fn (
+        *const anyopaque,
+        u32,
+    ) u32 = @ptrCast(get_instance_proc_addr(
+        instance,
+        "vkGetPhysicalDeviceWin32PresentationSupportKHR",
+    ) orelse return error.FailedToLoadFunction);
+
+    return get_physical_device_presentation_support(
+        physical_device,
+        queue_family_index,
+    );
 }
 
 fn windowProc(hwnd: ?*anyopaque, msg: MessageId, wparam: u64, lparam: i64) callconv(.C) usize {

@@ -73,6 +73,7 @@ pub fn init(allocator: std.mem.Allocator) !Context {
         .poll_events_fn = @ptrCast(&pollEvents),
         .get_monitors_fn = @ptrCast(&getMonitors),
         .required_vulkan_instance_extensions_fn = @ptrCast(&requiredVulkanInstanceExtensions),
+        .get_physical_device_presentation_support_fn = @ptrCast(&getPhysicalDevicePresentationSupport),
     };
 }
 
@@ -149,6 +150,34 @@ pub fn getMonitors(
 
 pub fn requiredVulkanInstanceExtensions(_: *const Self) []const [*:0]const u8 {
     return &required_vulkan_extensions;
+}
+
+pub fn getPhysicalDevicePresentationSupport(
+    self: *Self,
+    instance: *const anyopaque,
+    physical_device: *const anyopaque,
+    queue_family_index: u32,
+    get_instance_proc_addr: *const Context.GetInstanceProcAddrFn,
+) Context.VulkanGetPresentationSupportError!u32 {
+    const setup = self.xcb_lib.get_setup(self.connection);
+    const screen = self.xcb_lib.setup_roots_iterator(setup).data;
+
+    const get_physical_device_presentation_support: *const fn (
+        *const anyopaque,
+        u32,
+        *const xcb.Connection,
+        u32,
+    ) u32 = @ptrCast(get_instance_proc_addr(
+        instance,
+        "vkGetPhysicalDeviceXcbPresentationSupportKHR",
+    ) orelse return error.FailedToLoadFunction);
+
+    return get_physical_device_presentation_support(
+        physical_device,
+        queue_family_index,
+        self.connection,
+        screen.root_visual,
+    );
 }
 
 pub fn pollEvents(self: *Self) void {

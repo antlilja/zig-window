@@ -137,7 +137,7 @@ pub fn getSize(self: *const Self) struct { u32, u32 } {
 pub fn createVulkanSurface(
     self: *const Self,
     instance: *const anyopaque,
-    get_instance_proc_addr: *const Window.GetInstanceProcAddrFn,
+    get_instance_proc_addr: *const Context.GetInstanceProcAddrFn,
     allocation_callbacks: ?*const anyopaque,
 ) Window.VulkanSurfaceError!*anyopaque {
     const CreateInfo = extern struct {

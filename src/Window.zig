@@ -1,5 +1,7 @@
 const std = @import("std");
 
+const Context = @import("Context.zig");
+
 const EventHandler = @import("EventHandler.zig");
 
 pub const Config = struct {
@@ -9,8 +11,6 @@ pub const Config = struct {
     event_handler: EventHandler,
     resizable: bool = true,
 };
-
-pub const GetInstanceProcAddrFn = fn (*const anyopaque, [*:0]const u8) ?*const anyopaque;
 
 pub const VulkanSurfaceError = error{
     FailedToCreateSurface,
@@ -29,7 +29,7 @@ get_size_fn: *const fn (*anyopaque) struct { u32, u32 },
 create_vulkan_surface_fn: *const fn (
     *anyopaque,
     *anyopaque,
-    *const GetInstanceProcAddrFn,
+    *const Context.GetInstanceProcAddrFn,
     ?*anyopaque,
 ) VulkanSurfaceError!*anyopaque,
 
@@ -50,13 +50,13 @@ pub fn createVulkanSurface(
     comptime Instance: type,
     comptime Surface: type,
     instance: Instance,
-    get_instance_proc_addr: *const GetInstanceProcAddrFn,
+    get_instance_proc_addr: *const Context.GetInstanceProcAddrFn,
     allocation_callbacks: ?*const anyopaque,
 ) VulkanSurfaceError!Surface {
     const func: *const fn (
         *anyopaque,
         Instance,
-        *const GetInstanceProcAddrFn,
+        *const Context.GetInstanceProcAddrFn,
         ?*const anyopaque,
     ) VulkanSurfaceError!Surface = @ptrCast(self.create_vulkan_surface_fn);
 
