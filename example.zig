@@ -23,10 +23,10 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
 
-    const context = try zw.init(gpa.allocator());
-    defer context.deinit();
+    try zw.init(gpa.allocator());
+    defer zw.deinit();
 
-    const window = try context.createWindow(.{
+    const window = try zw.createWindow(.{
         .name = "Example window",
         .width = 1920,
         .height = 1080,
@@ -38,6 +38,6 @@ pub fn main() !void {
     defer window.destroy();
 
     while (window.isOpen()) {
-        context.pollEvents();
+        zw.pollEvents();
     }
 }
