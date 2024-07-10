@@ -24,14 +24,14 @@ resizable: bool,
 
 event_handler: EventHandler,
 
-context: *const XcbContext,
+context: *XcbContext,
 window: u32,
 delete_window_atom: u32,
 
 last_key_time: u32,
 
 pub fn create(
-    context: *const XcbContext,
+    context: *XcbContext,
     config: Window.Config,
     allocator: std.mem.Allocator,
 ) Context.CreateWindowError!*Self {
@@ -183,6 +183,7 @@ pub fn create(
 
 pub fn destroy(self: *const Self) void {
     _ = self.context.xcb_lib.destroy_window(self.context.connection, self.window);
+    self.context.destroyWindow(self);
     self.context.allocator.destroy(self);
 }
 

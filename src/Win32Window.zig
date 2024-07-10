@@ -17,11 +17,11 @@ resizable: bool,
 
 event_handler: EventHandler,
 
-context: *const Win32Context,
+context: *Win32Context,
 hwnd: *anyopaque,
 
 pub fn create(
-    context: *const Win32Context,
+    context: *Win32Context,
     config: Window.Config,
 ) Context.CreateWindowError!*Self {
     const name_z = try context.allocator.dupeZ(u8, config.name);

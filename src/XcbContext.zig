@@ -111,6 +111,10 @@ pub fn createWindow(
     };
 }
 
+pub fn destroyWindow(self: *Self, window: *const XcbWindow) void {
+    _ = self.windows.remove(window.window);
+}
+
 pub fn getMonitors(
     self: *Self,
     allocator: std.mem.Allocator,
