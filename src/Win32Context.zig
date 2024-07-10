@@ -68,7 +68,7 @@ extern fn PeekMessageA(msg: *Message, hwnd: ?*anyopaque, filter_min: u32, filter
 extern fn TranslateMessage(msg: *const Message) callconv(.C) c_int;
 extern fn DispatchMessageW(msg: *const Message) callconv(.C) *anyopaque;
 extern fn DefWindowProcA(hwnd: ?*anyopaque, msg: u32, wparam: u64, lparam: i64) callconv(.C) usize;
-extern fn GetWindowLongPtrA(hwnd: ?*anyopaque, index: c_int) ?*anyopaque;
+extern fn GetWindowLongPtrA(hwnd: ?*anyopaque, index: c_int) callconv(.C) ?*anyopaque;
 extern fn MapVirtualKeyA(code: u32, map_type: u32) callconv(.C) u32;
 
 const required_vulkan_extensions = [_][*:0]const u8{
