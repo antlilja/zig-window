@@ -6,13 +6,6 @@ const Window = @import("Window.zig");
 
 const Win32Context = @import("Win32Context.zig");
 
-const Rect = extern struct {
-    left: i32,
-    top: i32,
-    right: i32,
-    bottom: i32,
-};
-
 const Self = @This();
 
 extern fn CreateWindowExA(
@@ -30,7 +23,7 @@ extern fn CreateWindowExA(
     lp_param: ?*anyopaque,
 ) callconv(.C) ?*anyopaque;
 extern fn DestroyWindow(hwnd: *anyopaque) callconv(.C) void;
-extern fn AdjustWindowRectEx(rect: *Rect, style: u32, menu: c_int, ex_style: u32) callconv(.C) c_int;
+extern fn AdjustWindowRectEx(rect: *Win32Context.Rect, style: u32, menu: c_int, ex_style: u32) callconv(.C) c_int;
 extern fn SetWindowLongPtrA(hwnd: *anyopaque, index: c_int, ptr: *anyopaque) callconv(.C) ?*anyopaque;
 extern fn SetLastError(code: u32) callconv(.C) void;
 extern fn GetLastError() callconv(.C) u32;
@@ -75,7 +68,7 @@ pub fn create(
             WS_SYSMENU |
             WS_MINIMIZEBOX;
 
-    var rect = Rect{
+    var rect = Win32Context.Rect{
         .left = 0,
         .right = @intCast(config.width),
         .top = 0,

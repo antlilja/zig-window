@@ -5,6 +5,7 @@ const EventHandler = @import("EventHandler.zig");
 const Window = @import("Window.zig");
 
 const xcb = @import("xcb/base.zig");
+const randr = @import("xcb/randr.zig");
 
 const XcbWindow = @import("XcbWindow.zig");
 
@@ -20,6 +21,7 @@ allocator: std.mem.Allocator,
 windows: std.AutoHashMapUnmanaged(u32, *XcbWindow),
 
 xcb_lib: xcb.Library,
+randr_lib: ?randr.Library,
 
 connection: *xcb.Connection,
 
@@ -50,6 +52,13 @@ pub fn init(allocator: std.mem.Allocator) !Context {
     ) orelse return error.FailedToLoadFunction;
     errdefer self.xcb_lib.deinit();
 
+    self.randr_lib = load(
+        randr.Library,
+        "xcb_randr_",
+        "libxcb-randr.so",
+    ) orelse null;
+    errdefer if (self.randr_lib) |randr_lib| randr_lib.deinit();
+
     self.connection = self.xcb_lib.connect(null, null) orelse return error.FailedToInitialize;
     errdefer self.xcb_lib.disconnect(self.connection);
 
@@ -62,12 +71,14 @@ pub fn init(allocator: std.mem.Allocator) !Context {
         .deinit_fn = @ptrCast(&deinit),
         .create_window_fn = @ptrCast(&createWindow),
         .poll_events_fn = @ptrCast(&pollEvents),
+        .get_monitors_fn = @ptrCast(&getMonitors),
         .required_vulkan_instance_extensions_fn = @ptrCast(&requiredVulkanInstanceExtensions),
     };
 }
 
 pub fn deinit(self: *Self) void {
     self.xcb_lib.disconnect(self.connection);
+    if (self.randr_lib) |randr_lib| randr_lib.deinit();
     self.xcb_lib.deinit();
     self.windows.deinit(self.allocator);
     self.allocator.destroy(self);
@@ -96,6 +107,44 @@ pub fn createWindow(
         .get_size_fn = @ptrCast(&XcbWindow.getSize),
         .create_vulkan_surface_fn = @ptrCast(&XcbWindow.createVulkanSurface),
     };
+}
+
+pub fn getMonitors(
+    self: *Self,
+    allocator: std.mem.Allocator,
+) std.mem.Allocator.Error![]const Context.Monitor {
+    const randr_lib = self.randr_lib orelse return &.{};
+
+    const setup = self.xcb_lib.get_setup(self.connection);
+    const screen = self.xcb_lib.setup_roots_iterator(setup).data;
+
+    const cookie = randr_lib.get_monitors(self.connection, screen.root, 1);
+    const reply = randr_lib.get_monitors_reply(
+        self.connection,
+        cookie,
+        null,
+    );
+    defer std.c.free(@constCast(reply));
+
+    const monitors = try allocator.alloc(Context.Monitor, reply.num_monitors);
+    errdefer allocator.free(monitors);
+
+    var it = randr_lib.get_monitors_monitors_iterator(reply);
+    var index: usize = 0;
+    while (it.rem != 0) : ({
+        randr_lib.monitor_info_next(&it);
+        index += 1;
+    }) {
+        monitors[index] = .{
+            .is_primary = it.data.primary != 0,
+            .x = @intCast(it.data.x),
+            .y = @intCast(it.data.y),
+            .width = @intCast(it.data.width),
+            .height = @intCast(it.data.height),
+        };
+    }
+
+    return monitors;
 }
 
 pub fn requiredVulkanInstanceExtensions(_: *const Self) []const [*:0]const u8 {

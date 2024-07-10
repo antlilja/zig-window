@@ -59,6 +59,20 @@ const Message = extern struct {
     private: u32,
 };
 
+pub const Rect = extern struct {
+    left: i32,
+    top: i32,
+    right: i32,
+    bottom: i32,
+};
+
+const MonitorInfo = extern struct {
+    size: u32,
+    monitor: Rect,
+    work: Rect,
+    flags: u32,
+};
+
 const Self = @This();
 
 extern fn GetModuleHandleA(name: ?[*:0]const u8) callconv(.C) *anyopaque;
@@ -70,6 +84,8 @@ extern fn DispatchMessageW(msg: *const Message) callconv(.C) *anyopaque;
 extern fn DefWindowProcA(hwnd: ?*anyopaque, msg: u32, wparam: u64, lparam: i64) callconv(.C) usize;
 extern fn GetWindowLongPtrA(hwnd: ?*anyopaque, index: c_int) callconv(.C) ?*anyopaque;
 extern fn MapVirtualKeyA(code: u32, map_type: u32) callconv(.C) u32;
+extern fn EnumDisplayMonitors(hdisplay: ?*anyopaque, rect: ?*Rect, proc: *const fn (*anyopaque, ?*anyopaque, ?*Rect, *anyopaque) callconv(.C) c_int, *anyopaque) callconv(.C) c_int;
+extern fn GetMonitorInfoA(monitor: *anyopaque, monitor_info: *MonitorInfo) callconv(.C) c_int;
 
 const required_vulkan_extensions = [_][*:0]const u8{
     "VK_KHR_surface",
@@ -102,6 +118,7 @@ pub fn init(allocator: std.mem.Allocator) !Context {
         .deinit_fn = @ptrCast(&deinit),
         .poll_events_fn = @ptrCast(&pollEvents),
         .create_window_fn = @ptrCast(&createWindow),
+        .get_monitors_fn = @ptrCast(&getMonitors),
         .required_vulkan_instance_extensions_fn = @ptrCast(&requiredVulkanInstanceExtensions),
     };
 }
@@ -137,6 +154,39 @@ pub fn createWindow(self: *Self, config: Window.Config) Context.CreateWindowErro
         .get_size_fn = @ptrCast(&Win32Window.getSize),
         .create_vulkan_surface_fn = @ptrCast(&Win32Window.createVulkanSurface),
     };
+}
+
+pub fn getMonitors(_: *Self, allocator: std.mem.Allocator) std.mem.Allocator.Error![]const Context.Monitor {
+    const State = struct {
+        out_of_memory: bool = false,
+        monitors: std.ArrayList(Context.Monitor),
+    };
+    var state = State{
+        .monitors = std.ArrayList(Context.Monitor).init(allocator),
+    };
+    _ = EnumDisplayMonitors(null, null, &struct {
+        fn proc(monitor: *anyopaque, _: ?*anyopaque, _: ?*Rect, lparam: *anyopaque) callconv(.C) c_int {
+            const state_: *State = @alignCast(@ptrCast(lparam));
+            var monitor_info: MonitorInfo = undefined;
+            monitor_info.size = @sizeOf(MonitorInfo);
+            if (GetMonitorInfoA(monitor, &monitor_info) != 0) {
+                state_.monitors.append(.{
+                    .is_primary = (monitor_info.flags & 1) != 0,
+                    .x = monitor_info.work.left,
+                    .y = monitor_info.work.top,
+                    .width = @intCast(monitor_info.work.right - monitor_info.work.left),
+                    .height = @intCast(monitor_info.work.bottom - monitor_info.work.top),
+                }) catch {
+                    state_.out_of_memory = true;
+                };
+            }
+            return 1;
+        }
+    }.proc, @ptrCast(&state));
+
+    if (state.out_of_memory) return error.OutOfMemory;
+
+    return try state.monitors.toOwnedSlice();
 }
 
 pub fn requiredVulkanInstanceExtensions(_: *const Self) []const [*:0]const u8 {
