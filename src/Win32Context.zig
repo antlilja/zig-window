@@ -4,88 +4,11 @@ const Context = @import("Context.zig");
 const EventHandler = @import("EventHandler.zig");
 const Window = @import("Window.zig");
 
+const win32 = @import("win32.zig");
+
 const Win32Window = @import("Win32Window.zig");
 
-const MessageId = enum(u32) {
-    move = 0x3,
-    size = 0x5,
-    set_focus = 0x7,
-    kill_focus = 0x8,
-    close = 0x10,
-    key_down = 0x100,
-    key_up = 0x101,
-    sys_key_down = 0x104,
-    sys_key_up = 0x105,
-    mouse_move = 0x200,
-    left_button_down = 0x201,
-    left_button_up = 0x202,
-    right_button_down = 0x204,
-    right_button_up = 0x205,
-    middle_button_down = 0x207,
-    middle_button_up = 0x208,
-    mouse_wheel = 0x20a,
-    x_button_down = 0x20b,
-    x_button_up = 0x20c,
-    mouse_horizontal_wheel = 0x20e,
-    mouse_leave = 0x2a3,
-    _,
-};
-
-const WindowClass = extern struct {
-    size: u32 = 0,
-    style: u32 = 0,
-    proc: *const fn (*anyopaque, MessageId, u64, i64) callconv(.C) usize,
-    class_extra: c_int = 0,
-    window_extra: c_int = 0,
-    instance: ?*anyopaque = null,
-    icon: ?*anyopaque = null,
-    cursor: ?*anyopaque = null,
-    brush: ?*anyopaque = null,
-    menu_name: ?[*:0]const u8 = null,
-    class_name: ?[*:0]const u8 = null,
-    icon_sm: ?*anyopaque = null,
-};
-
-const Message = extern struct {
-    hwnd: *anyopaque,
-    message: u32,
-    w_param: u64,
-    l_param: u64,
-    time: u32,
-    point: extern struct {
-        x: i32,
-        y: i32,
-    },
-    private: u32,
-};
-
-pub const Rect = extern struct {
-    left: i32,
-    top: i32,
-    right: i32,
-    bottom: i32,
-};
-
-const MonitorInfo = extern struct {
-    size: u32,
-    monitor: Rect,
-    work: Rect,
-    flags: u32,
-};
-
 const Self = @This();
-
-extern fn GetModuleHandleA(name: ?[*:0]const u8) callconv(.C) *anyopaque;
-extern fn RegisterClassExA(window_class: *const WindowClass) callconv(.C) u16;
-extern fn LoadCursorA(instance: ?*anyopaque, cursor: usize) callconv(.C) ?*anyopaque;
-extern fn PeekMessageA(msg: *Message, hwnd: ?*anyopaque, filter_min: u32, filter_max: u32, remove_msg: u32) callconv(.C) c_int;
-extern fn TranslateMessage(msg: *const Message) callconv(.C) c_int;
-extern fn DispatchMessageW(msg: *const Message) callconv(.C) *anyopaque;
-extern fn DefWindowProcA(hwnd: ?*anyopaque, msg: u32, wparam: u64, lparam: i64) callconv(.C) usize;
-extern fn GetWindowLongPtrA(hwnd: ?*anyopaque, index: c_int) callconv(.C) ?*anyopaque;
-extern fn MapVirtualKeyA(code: u32, map_type: u32) callconv(.C) u32;
-extern fn EnumDisplayMonitors(hdisplay: ?*anyopaque, rect: ?*Rect, proc: *const fn (*anyopaque, ?*anyopaque, ?*Rect, *anyopaque) callconv(.C) c_int, *anyopaque) callconv(.C) c_int;
-extern fn GetMonitorInfoA(monitor: *anyopaque, monitor_info: *MonitorInfo) callconv(.C) c_int;
 
 const required_vulkan_extensions = [_][*:0]const u8{
     "VK_KHR_surface",
@@ -100,18 +23,18 @@ pub fn init(allocator: std.mem.Allocator) !Context {
     const self = try allocator.create(Self);
     errdefer allocator.destroy(self);
 
-    self.instance = GetModuleHandleA(null);
+    self.instance = win32.GetModuleHandleA(null);
     self.allocator = allocator;
 
-    const window_class = WindowClass{
+    const window_class = win32.WindowClass{
         .instance = self.instance,
         .proc = &windowProc,
         .class_name = "zig_window",
-        .cursor = LoadCursorA(null, 32512),
-        .size = @sizeOf(WindowClass),
+        .cursor = win32.LoadCursorA(null, 32512),
+        .size = @sizeOf(win32.WindowClass),
     };
 
-    if (RegisterClassExA(&window_class) == 0) return error.FailedToInitialize;
+    if (win32.RegisterClassExA(&window_class) == 0) return error.FailedToInitialize;
 
     return .{
         .handle = @ptrCast(self),
@@ -129,16 +52,16 @@ pub fn deinit(self: *Self) void {
 }
 
 pub fn pollEvents(_: *Self) void {
-    var msg: Message = undefined;
-    while (PeekMessageA(
+    var msg: win32.Message = undefined;
+    while (win32.PeekMessageA(
         &msg,
         null,
         0,
         0,
         1,
     ) != 0) {
-        _ = TranslateMessage(&msg);
-        _ = DispatchMessageW(&msg);
+        _ = win32.TranslateMessage(&msg);
+        _ = win32.DispatchMessageW(&msg);
     }
 }
 
@@ -165,12 +88,12 @@ pub fn getMonitors(_: *Self, allocator: std.mem.Allocator) std.mem.Allocator.Err
     var state = State{
         .monitors = std.ArrayList(Context.Monitor).init(allocator),
     };
-    _ = EnumDisplayMonitors(null, null, &struct {
-        fn proc(monitor: *anyopaque, _: ?*anyopaque, _: ?*Rect, lparam: *anyopaque) callconv(.C) c_int {
+    _ = win32.EnumDisplayMonitors(null, null, &struct {
+        fn proc(monitor: *anyopaque, _: ?*anyopaque, _: ?*win32.Rect, lparam: *anyopaque) callconv(.C) c_int {
             const state_: *State = @alignCast(@ptrCast(lparam));
-            var monitor_info: MonitorInfo = undefined;
-            monitor_info.size = @sizeOf(MonitorInfo);
-            if (GetMonitorInfoA(monitor, &monitor_info) != 0) {
+            var monitor_info: win32.MonitorInfo = undefined;
+            monitor_info.size = @sizeOf(win32.MonitorInfo);
+            if (win32.GetMonitorInfoA(monitor, &monitor_info) != 0) {
                 state_.monitors.append(.{
                     .is_primary = (monitor_info.flags & 1) != 0,
                     .x = monitor_info.work.left,
@@ -215,8 +138,8 @@ pub fn getPhysicalDevicePresentationSupport(
     );
 }
 
-fn windowProc(hwnd: ?*anyopaque, msg: MessageId, wparam: u64, lparam: i64) callconv(.C) usize {
-    const window: *Win32Window = @alignCast(@ptrCast(GetWindowLongPtrA(hwnd, -21) orelse return DefWindowProcA(hwnd, @intFromEnum(msg), wparam, lparam)));
+fn windowProc(hwnd: ?*anyopaque, msg: win32.MessageId, wparam: u64, lparam: i64) callconv(.C) usize {
+    const window: *Win32Window = @alignCast(@ptrCast(win32.GetWindowLongPtrA(hwnd, -21) orelse return win32.DefWindowProcA(hwnd, @intFromEnum(msg), wparam, lparam)));
     switch (msg) {
         .sys_key_down, .key_down => window.event_handler.handleEvent(.{ .KeyPress = keycodeToEnum(wparam, lparam) }),
         .sys_key_up, .key_up => window.event_handler.handleEvent(.{ .KeyRelease = keycodeToEnum(wparam, lparam) }),
@@ -259,7 +182,7 @@ fn windowProc(hwnd: ?*anyopaque, msg: MessageId, wparam: u64, lparam: i64) callc
         .x_button_up => window.event_handler.handleEvent(.{ .MouseRelease = if ((wparam >> 16) == 1) .one else .two }),
         else => {},
     }
-    return DefWindowProcA(hwnd, @intFromEnum(msg), wparam, lparam);
+    return win32.DefWindowProcA(hwnd, @intFromEnum(msg), wparam, lparam);
 }
 
 fn keycodeToEnum(code: u64, param: i64) EventHandler.Key {
@@ -322,7 +245,7 @@ fn keycodeToEnum(code: u64, param: i64) EventHandler.Key {
         0x25 => .left,
         0xbe => .period,
         0xbc => .comma,
-        0x10 => if (MapVirtualKeyA(@truncate((@as(u64, @bitCast(param)) & 0xff0000) >> 16), 3) == 0xa1) .right_shift else .left_shift,
+        0x10 => if (win32.MapVirtualKeyA(@truncate((@as(u64, @bitCast(param)) & 0xff0000) >> 16), 3) == 0xa1) .right_shift else .left_shift,
         0x11 => if ((param & 0x1000000) != 0) .right_ctrl else .left_ctrl,
         0x12 => if ((param & 0x1000000) != 0) .right_alt else .left_alt,
         0xd => if ((param & 0x1000000) != 0) .numpad_enter else .enter,
