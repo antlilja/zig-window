@@ -94,6 +94,7 @@ pub fn createWindow(
         config,
         self.allocator,
     );
+    errdefer window.destroy();
 
     try self.windows.put(
         self.allocator,

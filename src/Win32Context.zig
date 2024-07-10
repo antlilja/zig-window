@@ -70,6 +70,7 @@ pub fn createWindow(self: *Self, config: Window.Config) Context.CreateWindowErro
         self,
         config,
     );
+    errdefer window.destroy();
 
     return .{
         .handle = @ptrCast(window),
