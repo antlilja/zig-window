@@ -25,16 +25,14 @@ randr_lib: ?randr.Library,
 
 connection: *xcb.Connection,
 
-fn load(comptime Library: type, comptime prefix: []const u8, lib_name: [*:0]const u8) ?Library {
+fn load(comptime Library: type, comptime prefix: []const u8, lib_name: []const u8) ?Library {
     var library: Library = undefined;
-    library.handle = std.c.dlopen(lib_name, 0x2 | 0x100) orelse return null;
-    inline for (@typeInfo(Library).Struct.fields) |field| {
-        if (!std.mem.eql(u8, "handle", field.name)) {
-            @field(library, field.name) = @ptrCast(std.c.dlsym(
-                library.handle,
-                prefix ++ field.name,
-            ) orelse return null);
-        }
+    library.handle = std.DynLib.open(lib_name) catch return null;
+    inline for (@typeInfo(Library).Struct.fields[1..]) |field| {
+        @field(library, field.name) = library.handle.lookup(
+            field.type,
+            prefix ++ field.name,
+        ) orelse return null;
     }
     return library;
 }
@@ -57,7 +55,7 @@ pub fn init(allocator: std.mem.Allocator) !Context {
         "xcb_randr_",
         "libxcb-randr.so",
     ) orelse null;
-    errdefer if (self.randr_lib) |randr_lib| randr_lib.deinit();
+    errdefer if (self.randr_lib) |*randr_lib| randr_lib.deinit();
 
     self.connection = self.xcb_lib.connect(null, null) orelse return error.FailedToInitialize;
     errdefer self.xcb_lib.disconnect(self.connection);
@@ -79,7 +77,7 @@ pub fn init(allocator: std.mem.Allocator) !Context {
 
 pub fn deinit(self: *Self) void {
     self.xcb_lib.disconnect(self.connection);
-    if (self.randr_lib) |randr_lib| randr_lib.deinit();
+    if (self.randr_lib) |*randr_lib| randr_lib.deinit();
     self.xcb_lib.deinit();
     self.windows.deinit(self.allocator);
     self.allocator.destroy(self);

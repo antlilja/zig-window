@@ -227,7 +227,7 @@ pub const SizeHints = extern struct {
 };
 
 pub const Library = struct {
-    handle: *anyopaque,
+    handle: std.DynLib,
 
     connect: *const fn (displayname: ?[*:0]const u8, screenp: ?[*:0]c_int) callconv(.C) ?*Connection,
     disconnect: *const fn (connection: *Connection) callconv(.C) void,
@@ -285,7 +285,7 @@ pub const Library = struct {
 
     flush: *const fn (connection: *Connection) callconv(.C) c_int,
 
-    pub fn deinit(self: Library) void {
-        _ = std.c.dlclose(self.handle);
+    pub fn deinit(self: *Library) void {
+        self.handle.close();
     }
 };

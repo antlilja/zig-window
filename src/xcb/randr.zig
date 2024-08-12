@@ -33,7 +33,7 @@ pub const MonitorInfo = extern struct {
 };
 
 pub const Library = struct {
-    handle: *anyopaque,
+    handle: std.DynLib,
 
     get_monitors: *const fn (connection: *xcb.Connection, window: u32, get_active: u8) callconv(.C) u32,
     get_monitors_reply: *const fn (
@@ -44,7 +44,7 @@ pub const Library = struct {
     get_monitors_monitors_iterator: *const fn (*const GetMonitorsReply) callconv(.C) MonitorInfoIterator,
     monitor_info_next: *const fn (*MonitorInfoIterator) callconv(.C) void,
 
-    pub fn deinit(self: Library) void {
-        _ = std.c.dlclose(self.handle);
+    pub fn deinit(self: *Library) void {
+        self.handle.close();
     }
 };
