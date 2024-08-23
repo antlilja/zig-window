@@ -122,7 +122,6 @@ pub const Mouse = enum(u8) {
 pub const Event = union(enum) {
     Destroy: void,
     Resize: struct { u32, u32 },
-    Move: struct { u32, u32 },
     KeyPress: Key,
     KeyRelease: Key,
     MousePress: Mouse,
