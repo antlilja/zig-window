@@ -293,8 +293,8 @@ fn proccessEvent(
             if (self.windows.get(motion_event.window)) |window| {
                 window.event_handler.handleEvent(.{
                     .MouseMove = .{
-                        @intCast(motion_event.event_x),
-                        @intCast(motion_event.event_y),
+                        motion_event.event_x,
+                        motion_event.event_y,
                     },
                 });
             }

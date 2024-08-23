@@ -128,7 +128,7 @@ pub const Event = union(enum) {
     MouseRelease: Mouse,
     MouseScrollV: i8,
     MouseScrollH: i8,
-    MouseMove: struct { u32, u32 },
+    MouseMove: struct { i32, i32 },
     FocusIn: void,
     FocusOut: void,
 };
