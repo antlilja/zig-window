@@ -28,7 +28,7 @@ connection: *xcb.Connection,
 fn load(comptime Library: type, comptime prefix: []const u8, lib_name: []const u8) ?Library {
     var library: Library = undefined;
     library.handle = std.DynLib.open(lib_name) catch return null;
-    inline for (@typeInfo(Library).Struct.fields[1..]) |field| {
+    inline for (@typeInfo(Library).@"struct".fields[1..]) |field| {
         @field(library, field.name) = library.handle.lookup(
             field.type,
             prefix ++ field.name,
