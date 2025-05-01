@@ -16,7 +16,7 @@ pub const Monitor = struct {
     height: u32,
 };
 
-pub const GetInstanceProcAddrFn = fn (*const anyopaque, [*:0]const u8) ?*const anyopaque;
+pub const GetInstanceProcAddrFn = fn (*const anyopaque, [*:0]const u8) callconv(.C) ?*const anyopaque;
 
 pub const VulkanGetPresentationSupportError = error{FailedToLoadFunction};
 

@@ -213,7 +213,7 @@ pub fn createVulkanSurface(
         *const CreateInfo,
         ?*const anyopaque,
         **anyopaque,
-    ) c_int = @ptrCast(get_instance_proc_addr(
+    ) callconv(.C) c_int = @ptrCast(get_instance_proc_addr(
         instance,
         "vkCreateXcbSurfaceKHR",
     ) orelse return error.FailedToLoadFunction);
