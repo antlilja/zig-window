@@ -90,8 +90,8 @@ pub fn getMonitors(_: *Self, allocator: std.mem.Allocator) std.mem.Allocator.Err
         .monitors = std.ArrayList(Context.Monitor).init(allocator),
     };
     _ = win32.EnumDisplayMonitors(null, null, &struct {
-        fn proc(monitor: *anyopaque, _: ?*anyopaque, _: ?*win32.Rect, lparam: *anyopaque) callconv(.C) c_int {
-            const state_: *State = @alignCast(@ptrCast(lparam));
+        fn proc(monitor: *anyopaque, _: ?*anyopaque, _: ?*win32.Rect, lparam: *anyopaque) callconv(.c) c_int {
+            const state_: *State = @ptrCast(@alignCast(lparam));
             var monitor_info: win32.MonitorInfo = undefined;
             monitor_info.size = @sizeOf(win32.MonitorInfo);
             if (win32.GetMonitorInfoA(monitor, &monitor_info) != 0) {
@@ -139,8 +139,8 @@ pub fn getPhysicalDevicePresentationSupport(
     );
 }
 
-fn windowProc(hwnd: ?*anyopaque, msg: win32.MessageId, wparam: u64, lparam: i64) callconv(.C) usize {
-    const window: *Win32Window = @alignCast(@ptrCast(win32.GetWindowLongPtrA(hwnd, -21) orelse return win32.DefWindowProcA(hwnd, @intFromEnum(msg), wparam, lparam)));
+fn windowProc(hwnd: ?*anyopaque, msg: win32.MessageId, wparam: u64, lparam: i64) callconv(.c) usize {
+    const window: *Win32Window = @ptrCast(@alignCast(win32.GetWindowLongPtrA(hwnd, -21) orelse return win32.DefWindowProcA(hwnd, @intFromEnum(msg), wparam, lparam)));
     switch (msg) {
         .sys_key_down, .key_down => window.event_handler.handleEvent(.{ .KeyPress = keycodeToEnum(wparam, lparam) }),
         .sys_key_up, .key_up => window.event_handler.handleEvent(.{ .KeyRelease = keycodeToEnum(wparam, lparam) }),

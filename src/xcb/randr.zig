@@ -35,14 +35,14 @@ pub const MonitorInfo = extern struct {
 pub const Library = struct {
     handle: std.DynLib,
 
-    get_monitors: *const fn (connection: *xcb.Connection, window: u32, get_active: u8) callconv(.C) u32,
+    get_monitors: *const fn (connection: *xcb.Connection, window: u32, get_active: u8) callconv(.c) u32,
     get_monitors_reply: *const fn (
         connection: *xcb.Connection,
         cookie: u32,
         ?*?*xcb.GenericError,
-    ) callconv(.C) *const GetMonitorsReply,
-    get_monitors_monitors_iterator: *const fn (*const GetMonitorsReply) callconv(.C) MonitorInfoIterator,
-    monitor_info_next: *const fn (*MonitorInfoIterator) callconv(.C) void,
+    ) callconv(.c) *const GetMonitorsReply,
+    get_monitors_monitors_iterator: *const fn (*const GetMonitorsReply) callconv(.c) MonitorInfoIterator,
+    monitor_info_next: *const fn (*MonitorInfoIterator) callconv(.c) void,
 
     pub fn deinit(self: *Library) void {
         self.handle.close();

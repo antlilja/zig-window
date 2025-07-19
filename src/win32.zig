@@ -26,7 +26,7 @@ pub const MessageId = enum(u32) {
 pub const WindowClass = extern struct {
     size: u32 = 0,
     style: u32 = 0,
-    proc: *const fn (*anyopaque, MessageId, u64, i64) callconv(.C) usize,
+    proc: *const fn (*anyopaque, MessageId, u64, i64) callconv(.c) usize,
     class_extra: c_int = 0,
     window_extra: c_int = 0,
     instance: ?*anyopaque = null,
@@ -65,23 +65,23 @@ pub const MonitorInfo = extern struct {
     flags: u32,
 };
 
-pub extern fn GetModuleHandleA(name: ?[*:0]const u8) callconv(.C) *anyopaque;
-pub extern fn RegisterClassExA(window_class: *const WindowClass) callconv(.C) u16;
-pub extern fn LoadCursorA(instance: ?*anyopaque, cursor: usize) callconv(.C) ?*anyopaque;
-pub extern fn PeekMessageA(msg: *Message, hwnd: ?*anyopaque, filter_min: u32, filter_max: u32, remove_msg: u32) callconv(.C) c_int;
-pub extern fn TranslateMessage(msg: *const Message) callconv(.C) c_int;
-pub extern fn DispatchMessageW(msg: *const Message) callconv(.C) *anyopaque;
-pub extern fn DefWindowProcA(hwnd: ?*anyopaque, msg: u32, wparam: u64, lparam: i64) callconv(.C) usize;
-pub extern fn GetWindowLongPtrA(hwnd: ?*anyopaque, index: c_int) callconv(.C) ?*anyopaque;
-pub extern fn MapVirtualKeyA(code: u32, map_type: u32) callconv(.C) u32;
-pub extern fn EnumDisplayMonitors(hdisplay: ?*anyopaque, rect: ?*Rect, proc: *const fn (*anyopaque, ?*anyopaque, ?*Rect, *anyopaque) callconv(.C) c_int, *anyopaque) callconv(.C) c_int;
-pub extern fn GetMonitorInfoA(monitor: *anyopaque, monitor_info: *MonitorInfo) callconv(.C) c_int;
-pub extern fn CreateWindowExA(ex_style: u32, class_name: ?[*:0]const u8, window_name: ?[*:0]const u8, style: u32, x: c_int, y: c_int, width: c_int, height: c_int, parent: ?*anyopaque, menu: ?*anyopaque, instance: ?*anyopaque, lp_param: ?*anyopaque) callconv(.C) ?*anyopaque;
-pub extern fn DestroyWindow(hwnd: *anyopaque) callconv(.C) void;
-pub extern fn AdjustWindowRectEx(rect: *Rect, style: u32, menu: c_int, ex_style: u32) callconv(.C) c_int;
-pub extern fn SetWindowLongPtrA(hwnd: *anyopaque, index: c_int, ptr: *anyopaque) callconv(.C) ?*anyopaque;
-pub extern fn SetLastError(code: u32) callconv(.C) void;
-pub extern fn GetLastError() callconv(.C) u32;
+pub extern fn GetModuleHandleA(name: ?[*:0]const u8) callconv(.c) *anyopaque;
+pub extern fn RegisterClassExA(window_class: *const WindowClass) callconv(.c) u16;
+pub extern fn LoadCursorA(instance: ?*anyopaque, cursor: usize) callconv(.c) ?*anyopaque;
+pub extern fn PeekMessageA(msg: *Message, hwnd: ?*anyopaque, filter_min: u32, filter_max: u32, remove_msg: u32) callconv(.c) c_int;
+pub extern fn TranslateMessage(msg: *const Message) callconv(.c) c_int;
+pub extern fn DispatchMessageW(msg: *const Message) callconv(.c) *anyopaque;
+pub extern fn DefWindowProcA(hwnd: ?*anyopaque, msg: u32, wparam: u64, lparam: i64) callconv(.c) usize;
+pub extern fn GetWindowLongPtrA(hwnd: ?*anyopaque, index: c_int) callconv(.c) ?*anyopaque;
+pub extern fn MapVirtualKeyA(code: u32, map_type: u32) callconv(.c) u32;
+pub extern fn EnumDisplayMonitors(hdisplay: ?*anyopaque, rect: ?*Rect, proc: *const fn (*anyopaque, ?*anyopaque, ?*Rect, *anyopaque) callconv(.c) c_int, *anyopaque) callconv(.c) c_int;
+pub extern fn GetMonitorInfoA(monitor: *anyopaque, monitor_info: *MonitorInfo) callconv(.c) c_int;
+pub extern fn CreateWindowExA(ex_style: u32, class_name: ?[*:0]const u8, window_name: ?[*:0]const u8, style: u32, x: c_int, y: c_int, width: c_int, height: c_int, parent: ?*anyopaque, menu: ?*anyopaque, instance: ?*anyopaque, lp_param: ?*anyopaque) callconv(.c) ?*anyopaque;
+pub extern fn DestroyWindow(hwnd: *anyopaque) callconv(.c) void;
+pub extern fn AdjustWindowRectEx(rect: *Rect, style: u32, menu: c_int, ex_style: u32) callconv(.c) c_int;
+pub extern fn SetWindowLongPtrA(hwnd: *anyopaque, index: c_int, ptr: *anyopaque) callconv(.c) ?*anyopaque;
+pub extern fn SetLastError(code: u32) callconv(.c) void;
+pub extern fn GetLastError() callconv(.c) u32;
 
 pub const WS_CAPTION: u32 = 0x00C00000;
 pub const WS_MAXIMIZEBOX: u32 = 0x00010000;
