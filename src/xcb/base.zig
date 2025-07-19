@@ -229,14 +229,14 @@ pub const SizeHints = extern struct {
 pub const Library = struct {
     handle: std.DynLib,
 
-    connect: *const fn (displayname: ?[*:0]const u8, screenp: ?[*:0]c_int) callconv(.C) ?*Connection,
-    disconnect: *const fn (connection: *Connection) callconv(.C) void,
-    connection_has_error: *const fn (connection: *Connection) callconv(.C) c_int,
+    connect: *const fn (displayname: ?[*:0]const u8, screenp: ?[*:0]c_int) callconv(.c) ?*Connection,
+    disconnect: *const fn (connection: *Connection) callconv(.c) void,
+    connection_has_error: *const fn (connection: *Connection) callconv(.c) c_int,
 
-    get_setup: *const fn (connection: *Connection) callconv(.C) *const Setup,
-    setup_roots_iterator: *const fn (root: *const Setup) callconv(.C) ScreenIterator,
+    get_setup: *const fn (connection: *Connection) callconv(.c) *const Setup,
+    setup_roots_iterator: *const fn (root: *const Setup) callconv(.c) ScreenIterator,
 
-    generate_id: *const fn (connection: *Connection) callconv(.C) u32,
+    generate_id: *const fn (connection: *Connection) callconv(.c) u32,
 
     create_window: *const fn (
         connection: *Connection,
@@ -252,25 +252,25 @@ pub const Library = struct {
         visual: u32,
         value_mask: WindowValueMask,
         value_list: ?[*]const u32,
-    ) callconv(.C) u32,
-    destroy_window: *const fn (connection: *Connection, window: u32) callconv(.C) u32,
+    ) callconv(.c) u32,
+    destroy_window: *const fn (connection: *Connection, window: u32) callconv(.c) u32,
 
-    map_window: *const fn (connection: *Connection, window: u32) callconv(.C) u32,
-    unmap_window: *const fn (connection: *Connection, window: u32) callconv(.C) u32,
+    map_window: *const fn (connection: *Connection, window: u32) callconv(.c) u32,
+    unmap_window: *const fn (connection: *Connection, window: u32) callconv(.c) u32,
 
-    poll_for_event: *const fn (connection: *Connection) callconv(.C) ?*GenericEvent,
+    poll_for_event: *const fn (connection: *Connection) callconv(.c) ?*GenericEvent,
 
     intern_atom: *const fn (
         connection: *Connection,
         only_if_exists: u8,
         name_len: u16,
         name: [*:0]const u8,
-    ) callconv(.C) u32,
+    ) callconv(.c) u32,
     intern_atom_reply: *const fn (
         connection: *Connection,
         cookie: u32,
         e: ?*GenericError,
-    ) callconv(.C) *InternAtomReply,
+    ) callconv(.c) *InternAtomReply,
 
     change_property: *const fn (
         connection: *Connection,
@@ -281,9 +281,9 @@ pub const Library = struct {
         format: u8,
         data_len: u32,
         data: ?*const anyopaque,
-    ) callconv(.C) u32,
+    ) callconv(.c) u32,
 
-    flush: *const fn (connection: *Connection) callconv(.C) c_int,
+    flush: *const fn (connection: *Connection) callconv(.c) c_int,
 
     pub fn deinit(self: *Library) void {
         self.handle.close();

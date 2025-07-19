@@ -14,9 +14,11 @@ pub fn build(b: *Build) void {
 
     const example = b.addExecutable(.{
         .name = "zig-window-example",
-        .root_source_file = b.path("example.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("example.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
     example.root_module.addImport("zig-window", mod);
     b.installArtifact(example);
