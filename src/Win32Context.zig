@@ -84,18 +84,21 @@ pub fn createWindow(self: *Self, config: Window.Config) Context.CreateWindowErro
 pub fn getMonitors(_: *Self, allocator: std.mem.Allocator) std.mem.Allocator.Error![]const Context.Monitor {
     const State = struct {
         out_of_memory: bool = false,
+        allocator: std.mem.Allocator,
         monitors: std.ArrayList(Context.Monitor),
     };
     var state = State{
-        .monitors = std.ArrayList(Context.Monitor).init(allocator),
+        .allocator = allocator,
+        .monitors = .empty,
     };
+    defer state.monitors.deinit(allocator);
     _ = win32.EnumDisplayMonitors(null, null, &struct {
         fn proc(monitor: *anyopaque, _: ?*anyopaque, _: ?*win32.Rect, lparam: *anyopaque) callconv(.c) c_int {
             const state_: *State = @ptrCast(@alignCast(lparam));
             var monitor_info: win32.MonitorInfo = undefined;
             monitor_info.size = @sizeOf(win32.MonitorInfo);
             if (win32.GetMonitorInfoA(monitor, &monitor_info) != 0) {
-                state_.monitors.append(.{
+                state_.monitors.append(state_.allocator, .{
                     .is_primary = (monitor_info.flags & 1) != 0,
                     .x = monitor_info.work.left,
                     .y = monitor_info.work.top,
@@ -111,7 +114,7 @@ pub fn getMonitors(_: *Self, allocator: std.mem.Allocator) std.mem.Allocator.Err
 
     if (state.out_of_memory) return error.OutOfMemory;
 
-    return try state.monitors.toOwnedSlice();
+    return try state.monitors.toOwnedSlice(allocator);
 }
 
 pub fn requiredVulkanInstanceExtensions(_: *const Self) []const [*:0]const u8 {
