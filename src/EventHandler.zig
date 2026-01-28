@@ -105,7 +105,6 @@ pub const Key = enum(u8) {
     f12,
     oem_1,
     oem_2,
-    max,
     none,
 };
 
@@ -115,7 +114,6 @@ pub const Mouse = enum(u8) {
     right,
     one,
     two,
-    max,
     none,
 };
 
