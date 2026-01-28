@@ -6,6 +6,7 @@ const Window = @import("Window.zig");
 
 const xcb = @import("xcb/base.zig");
 const randr = @import("xcb/randr.zig");
+const xkb = @import("xcb/xkb.zig");
 
 const XcbWindow = @import("XcbWindow.zig");
 
@@ -22,6 +23,7 @@ window_map: std.AutoHashMapUnmanaged(u32, *XcbWindow),
 
 xcb_lib: xcb.Library,
 randr_lib: ?randr.Library,
+xkb_lib: xkb.Library,
 
 connection: *xcb.Connection,
 
@@ -55,6 +57,13 @@ pub fn init(allocator: std.mem.Allocator, config: Context.Config) !Context {
     ) orelse null;
     errdefer if (self.randr_lib) |*randr_lib| randr_lib.deinit();
 
+    self.xkb_lib = load(
+        xkb.Library,
+        "xcb_xkb_",
+        "libxcb-xkb.so",
+    ) orelse return error.FailedToLoadFunction;
+    errdefer self.xkb_lib.deinit();
+
     self.connection = self.xcb_lib.connect(null, null) orelse return error.FailedToInitialize;
     errdefer self.xcb_lib.disconnect(self.connection);
 
@@ -70,6 +79,57 @@ pub fn init(allocator: std.mem.Allocator, config: Context.Config) !Context {
     self.available_windows = try .initCapacity(allocator, config.max_window_count);
     errdefer self.available_windows.deinit(allocator);
     for (0..config.max_window_count) |window_index| self.available_windows.appendAssumeCapacity(@intCast(window_index));
+
+    // Setup non repeatable release
+    {
+        {
+            const reply = self.xkb_lib.use_extension_reply(
+                self.connection,
+                self.xkb_lib.use_extension(
+                    self.connection,
+                    1,
+                    13,
+                ),
+                null,
+            ) orelse return error.FailedToCreateWindow;
+            defer std.c.free(reply);
+        }
+
+        const kbd_device_id = blk: {
+            const reply = self.xkb_lib.get_device_info_reply(
+                self.connection,
+                self.xkb_lib.get_device_info(
+                    self.connection,
+                    256, // XCB_XKB_ID_USE_CORE_KBD
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                ),
+                null,
+            ) orelse return error.FailedToCreateWindow;
+            defer std.c.free(reply);
+
+            break :blk reply.device_id;
+        };
+
+        const reply = self.xkb_lib.per_client_flags_reply(
+            self.connection,
+            self.xkb_lib.per_client_flags(
+                self.connection,
+                kbd_device_id,
+                1, // XCB_XKB_PER_CLIENT_FLAG_DETECTABLE_AUTO_REPEAT
+                1, // XCB_XKB_PER_CLIENT_FLAG_DETECTABLE_AUTO_REPEAT
+                0,
+                0,
+                0,
+            ),
+            null,
+        ) orelse return error.FailedToCreateWindow;
+        defer std.c.free(reply);
+    }
 
     return .{
         .handle = @ptrCast(self),
@@ -196,122 +256,96 @@ pub fn getPhysicalDevicePresentationSupport(
 }
 
 pub fn pollEvents(self: *Self) void {
-    var maybe_current = self.xcb_lib.poll_for_event(self.connection);
-
-    while (maybe_current) |current| {
-        const maybe_next = self.xcb_lib.poll_for_event(self.connection);
-        self.proccessEvent(
-            current,
-            maybe_next,
-        );
-        std.c.free(current);
-        maybe_current = maybe_next;
-    }
-}
-
-fn proccessEvent(
-    self: *Self,
-    current: *xcb.GenericEvent,
-    next: ?*xcb.GenericEvent,
-) void {
-    switch (enumFromResponseType(current.response_type)) {
-        .client_message => {
-            const client_event: *const xcb.ClientMessageEvent = @ptrCast(current);
-            if (self.window_map.get(client_event.window)) |window| {
-                if (client_event.*.data.data32[0] == window.delete_window_atom) {
-                    window.is_open = false;
-                    window.event_handler.handleEvent(.Destroy);
-                }
-            }
-        },
-        .configure_notify => {
-            const config_event: *const xcb.ConfigureNotifyEvent = @ptrCast(current);
-            if (self.window_map.get(config_event.window)) |window| {
-                if (config_event.width != window.width or config_event.height != window.height) {
-                    window.width = config_event.width;
-                    window.height = config_event.height;
-                    window.event_handler.handleEvent(.{ .Resize = .{
-                        window.width,
-                        window.height,
-                    } });
-                }
-            }
-        },
-        .focus_in => {
-            const focus_event: *const xcb.FocusEvent = @ptrCast(current);
-            if (self.window_map.get(focus_event.window)) |window| window.event_handler.handleEvent(.FocusIn);
-        },
-        .focus_out => {
-            const focus_event: *const xcb.FocusEvent = @ptrCast(current);
-            if (self.window_map.get(focus_event.window)) |window| window.event_handler.handleEvent(.FocusOut);
-        },
-        .key_press => {
-            const key_event: *const xcb.KeyEvent = @ptrCast(current);
-                if (window.last_key_time >= key_event.time) {
-                    window.last_key_time = key_event.time;
-                    break :blk;
-                }
-                window.last_key_time = key_event.time;
-            if (self.window_map.get(key_event.window)) |window| blk: {
-                window.event_handler.handleEvent(.{
-                    .KeyPress = enumFromKeycode(key_event.detail),
-                });
-            }
-        },
-        .key_release => {
-            const key_event: *const xcb.KeyEvent = @ptrCast(current);
-                const maybe_next_event: ?*const xcb.KeyEvent = @ptrCast(next);
-                if (maybe_next_event) |next_event| {
-                    if (enumFromResponseType(next_event.response_type) == .key_press and
-                        (next_event.time - key_event.time) < 20 and
-                        next_event.detail == key_event.detail and
-                        next_event.window == key_event.window)
-                    {
-                        window.last_key_time = key_event.time;
-                        break :blk;
+    while (self.xcb_lib.poll_for_event(self.connection)) |event| {
+        switch (enumFromResponseType(event.response_type)) {
+            .client_message => {
+                const client_event: *const xcb.ClientMessageEvent = @ptrCast(event);
+                if (self.window_map.get(client_event.window)) |window| {
+                    if (client_event.*.data.data32[0] == window.delete_window_atom) {
+                        window.is_open = false;
+                        window.event_handler.handleEvent(.Destroy);
                     }
                 }
-                window.last_key_time = key_event.time;
-            if (self.window_map.get(key_event.window)) |window| blk: {
-                window.event_handler.handleEvent(.{
-                    .KeyRelease = enumFromKeycode(key_event.detail),
-                });
-            }
-        },
-        .button_press => {
-            const button_event: *const xcb.ButtonEvent = @ptrCast(current);
-            if (self.window_map.get(button_event.window)) |window| {
-                window.event_handler.handleEvent(switch (button_event.detail) {
-                    4 => .{ .MouseScrollV = 1 },
-                    5 => .{ .MouseScrollV = -1 },
-                    6 => .{ .MouseScrollH = 1 },
-                    7 => .{ .MouseScrollH = -1 },
-                    else => .{ .MousePress = enumFromMousecode(button_event.detail) },
-                });
-            }
-        },
-        .button_release => {
-            const button_event: *const xcb.ButtonEvent = @ptrCast(current);
-            if (self.window_map.get(button_event.window)) |window| {
-                if (button_event.detail != 4 and button_event.detail != 5) {
+            },
+            .configure_notify => {
+                const config_event: *const xcb.ConfigureNotifyEvent = @ptrCast(event);
+                if (self.window_map.get(config_event.window)) |window| {
+                    if (config_event.width != window.width or config_event.height != window.height) {
+                        window.width = config_event.width;
+                        window.height = config_event.height;
+                        window.event_handler.handleEvent(.{ .Resize = .{
+                            window.width,
+                            window.height,
+                        } });
+                    }
+                }
+            },
+            .focus_in => {
+                const focus_event: *const xcb.FocusEvent = @ptrCast(event);
+                if (self.window_map.get(focus_event.window)) |window| window.event_handler.handleEvent(.FocusIn);
+            },
+            .focus_out => {
+                const focus_event: *const xcb.FocusEvent = @ptrCast(event);
+                if (self.window_map.get(focus_event.window)) |window| window.event_handler.handleEvent(.FocusOut);
+            },
+            .key_press => {
+                const key_event: *const xcb.KeyEvent = @ptrCast(event);
+                if (self.window_map.get(key_event.window)) |window| {
+                    const keycode = enumFromKeycode(key_event.detail);
+                    const state_ptr = window.key_states.getPtr(keycode);
+                    if (state_ptr.*) continue;
+                    state_ptr.* = true;
                     window.event_handler.handleEvent(.{
-                        .MouseRelease = enumFromMousecode(button_event.detail),
+                        .KeyPress = keycode,
                     });
                 }
-            }
-        },
-        .motion_notify => {
-            const motion_event: *const xcb.MotionNotifyEvent = @ptrCast(current);
-            if (self.window_map.get(motion_event.window)) |window| {
-                window.event_handler.handleEvent(.{
-                    .MouseMove = .{
-                        motion_event.event_x,
-                        motion_event.event_y,
-                    },
-                });
-            }
-        },
-        else => {},
+            },
+            .key_release => {
+                const key_event: *const xcb.KeyEvent = @ptrCast(event);
+                if (self.window_map.get(key_event.window)) |window| {
+                    const keycode = enumFromKeycode(key_event.detail);
+                    window.key_states.set(keycode, false);
+                    window.event_handler.handleEvent(.{
+                        .KeyRelease = keycode,
+                    });
+                }
+            },
+            .button_press => {
+                const button_event: *const xcb.ButtonEvent = @ptrCast(event);
+                if (self.window_map.get(button_event.window)) |window| {
+                    window.event_handler.handleEvent(switch (button_event.detail) {
+                        4 => .{ .MouseScrollV = 1 },
+                        5 => .{ .MouseScrollV = -1 },
+                        6 => .{ .MouseScrollH = 1 },
+                        7 => .{ .MouseScrollH = -1 },
+                        else => .{ .MousePress = enumFromMousecode(button_event.detail) },
+                    });
+                }
+            },
+            .button_release => {
+                const button_event: *const xcb.ButtonEvent = @ptrCast(event);
+                if (self.window_map.get(button_event.window)) |window| {
+                    if (button_event.detail != 4 and button_event.detail != 5) {
+                        window.event_handler.handleEvent(.{
+                            .MouseRelease = enumFromMousecode(button_event.detail),
+                        });
+                    }
+                }
+            },
+            .motion_notify => {
+                const motion_event: *const xcb.MotionNotifyEvent = @ptrCast(event);
+                if (self.window_map.get(motion_event.window)) |window| {
+                    window.event_handler.handleEvent(.{
+                        .MouseMove = .{
+                            motion_event.event_x,
+                            motion_event.event_y,
+                        },
+                    });
+                }
+            },
+            else => {},
+        }
+        std.c.free(event);
     }
 }
 

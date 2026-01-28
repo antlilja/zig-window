@@ -28,7 +28,7 @@ context: *XcbContext,
 window: u32,
 delete_window_atom: u32,
 
-last_key_time: u32,
+key_states: std.enums.EnumArray(EventHandler.Key, bool) = .initFill(false),
 
 pub fn create(
     self: *Self,
@@ -173,8 +173,6 @@ pub fn create(
 
         .window = window,
         .delete_window_atom = delete_window_atom,
-
-        .last_key_time = 0,
     };
 }
 
