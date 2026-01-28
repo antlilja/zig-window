@@ -8,6 +8,11 @@ const Window = @import("Window.zig");
 pub const CreateWindowError = error{
     OutOfMemory,
     FailedToCreateWindow,
+    MaxWindowCountExceeded,
+};
+
+pub const Config = struct {
+    max_window_count: u32,
 };
 
 pub const Monitor = struct {
@@ -24,7 +29,7 @@ pub const VulkanGetPresentationSupportError = error{FailedToLoadFunction};
 
 handle: *anyopaque,
 
-deinit_fn: *const fn (*anyopaque) void,
+deinit_fn: *const fn (*anyopaque, std.mem.Allocator) void,
 
 create_window_fn: *const fn (*anyopaque, Window.Config) CreateWindowError!Window,
 

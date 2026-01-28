@@ -17,14 +17,21 @@ const required_vulkan_extensions = [_][*:0]const u8{
 
 instance: *anyopaque,
 
-allocator: std.mem.Allocator,
+windows: []Win32Window,
+available_windows: std.ArrayList(u32),
 
-pub fn init(allocator: std.mem.Allocator) !Context {
+pub fn init(allocator: std.mem.Allocator, config: Context.Config) !Context {
     const self = try allocator.create(Self);
     errdefer allocator.destroy(self);
 
+    self.windows = try allocator.alloc(Win32Window, config.max_window_count);
+    errdefer allocator.free(self.windows);
+
+    self.available_windows = try .initCapacity(allocator, config.max_window_count);
+    errdefer self.available_windows.deinit(allocator);
+    for (0..config.max_window_count) |window_index| self.available_windows.appendAssumeCapacity(@intCast(window_index));
+
     self.instance = win32.GetModuleHandleA(null);
-    self.allocator = allocator;
 
     const window_class = win32.WindowClass{
         .instance = self.instance,
@@ -47,8 +54,10 @@ pub fn init(allocator: std.mem.Allocator) !Context {
     };
 }
 
-pub fn deinit(self: *Self) void {
-    self.allocator.destroy(self);
+pub fn deinit(self: *Self, allocator: std.mem.Allocator) void {
+    self.available_windows.deinit(allocator);
+    allocator.free(self.windows);
+    allocator.destroy(self);
 }
 
 pub fn pollEvents(_: *Self) void {
@@ -66,7 +75,9 @@ pub fn pollEvents(_: *Self) void {
 }
 
 pub fn createWindow(self: *Self, config: Window.Config) Context.CreateWindowError!Window {
-    const window = try Win32Window.create(
+    const window_index = self.available_windows.pop() orelse return error.MaxWindowCountExceeded;
+    const window = &self.windows[window_index];
+    try window.create(
         self,
         config,
     );
@@ -79,6 +90,11 @@ pub fn createWindow(self: *Self, config: Window.Config) Context.CreateWindowErro
         .get_size_fn = @ptrCast(&Win32Window.getSize),
         .create_vulkan_surface_fn = @ptrCast(&Win32Window.createVulkanSurface),
     };
+}
+
+pub fn destroyWindow(self: *Self, window: *const Win32Window) void {
+    const window_index: u32 = @intCast(@intFromPtr(window) - @intFromPtr(self.windows.ptr));
+    self.available_windows.appendAssumeCapacity(window_index);
 }
 
 pub fn getMonitors(_: *Self, allocator: std.mem.Allocator) std.mem.Allocator.Error![]const Context.Monitor {

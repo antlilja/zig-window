@@ -31,10 +31,10 @@ delete_window_atom: u32,
 last_key_time: u32,
 
 pub fn create(
+    self: *Self,
     context: *XcbContext,
     config: Window.Config,
-    allocator: std.mem.Allocator,
-) Context.CreateWindowError!*Self {
+) Context.CreateWindowError!void {
     const setup = context.xcb_lib.get_setup(context.connection);
     const screen = context.xcb_lib.setup_roots_iterator(setup).data;
 
@@ -161,7 +161,6 @@ pub fn create(
     _ = context.xcb_lib.map_window(context.connection, window);
     _ = context.xcb_lib.flush(context.connection);
 
-    const self = try allocator.create(Self);
     self.* = .{
         .is_open = true,
         .width = config.width,
@@ -177,14 +176,11 @@ pub fn create(
 
         .last_key_time = 0,
     };
-
-    return self;
 }
 
 pub fn destroy(self: *const Self) void {
     _ = self.context.xcb_lib.destroy_window(self.context.connection, self.window);
     self.context.destroyWindow(self);
-    self.context.allocator.destroy(self);
 }
 
 pub fn isOpen(self: *const Self) bool {

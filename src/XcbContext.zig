@@ -16,9 +16,9 @@ const required_vulkan_extensions = [_][*:0]const u8{
     "VK_KHR_xcb_surface",
 };
 
-allocator: std.mem.Allocator,
-
-windows: std.AutoHashMapUnmanaged(u32, *XcbWindow),
+windows: []XcbWindow,
+available_windows: std.ArrayList(u32),
+window_map: std.AutoHashMapUnmanaged(u32, *XcbWindow),
 
 xcb_lib: xcb.Library,
 randr_lib: ?randr.Library,
@@ -37,11 +37,9 @@ fn load(comptime Library: type, comptime prefix: []const u8, lib_name: []const u
     return library;
 }
 
-pub fn init(allocator: std.mem.Allocator) !Context {
+pub fn init(allocator: std.mem.Allocator, config: Context.Config) !Context {
     const self = try allocator.create(Self);
     errdefer allocator.destroy(self);
-
-    self.allocator = allocator;
 
     self.xcb_lib = load(
         xcb.Library,
@@ -62,7 +60,16 @@ pub fn init(allocator: std.mem.Allocator) !Context {
 
     if (self.xcb_lib.connection_has_error(self.connection) != 0) return error.FailedToInitialize;
 
-    self.windows = .{};
+    self.window_map = .{};
+    try self.window_map.ensureTotalCapacity(allocator, config.max_window_count);
+    errdefer self.window_map.deinit(allocator);
+
+    self.windows = try allocator.alloc(XcbWindow, config.max_window_count);
+    errdefer allocator.free(self.windows);
+
+    self.available_windows = try .initCapacity(allocator, config.max_window_count);
+    errdefer self.available_windows.deinit(allocator);
+    for (0..config.max_window_count) |window_index| self.available_windows.appendAssumeCapacity(@intCast(window_index));
 
     return .{
         .handle = @ptrCast(self),
@@ -75,27 +82,30 @@ pub fn init(allocator: std.mem.Allocator) !Context {
     };
 }
 
-pub fn deinit(self: *Self) void {
+pub fn deinit(self: *Self, allocator: std.mem.Allocator) void {
     self.xcb_lib.disconnect(self.connection);
     if (self.randr_lib) |*randr_lib| randr_lib.deinit();
     self.xcb_lib.deinit();
-    self.windows.deinit(self.allocator);
-    self.allocator.destroy(self);
+    self.available_windows.deinit(allocator);
+    allocator.free(self.windows);
+    self.window_map.deinit(allocator);
+    allocator.destroy(self);
 }
 
 pub fn createWindow(
     self: *Self,
     config: Window.Config,
 ) Context.CreateWindowError!Window {
-    const window = try XcbWindow.create(
+    const window_index = self.available_windows.pop() orelse return error.MaxWindowCountExceeded;
+    const window = &self.windows[window_index];
+
+    try window.create(
         self,
         config,
-        self.allocator,
     );
     errdefer window.destroy();
 
-    try self.windows.put(
-        self.allocator,
+    self.window_map.putAssumeCapacity(
         window.window,
         window,
     );
@@ -110,7 +120,9 @@ pub fn createWindow(
 }
 
 pub fn destroyWindow(self: *Self, window: *const XcbWindow) void {
-    _ = self.windows.remove(window.window);
+    _ = self.window_map.remove(window.window);
+    const window_index: u32 = @intCast(@intFromPtr(window) - @intFromPtr(self.windows.ptr));
+    self.available_windows.appendAssumeCapacity(window_index);
 }
 
 pub fn getMonitors(
@@ -205,7 +217,7 @@ fn proccessEvent(
     switch (enumFromResponseType(current.response_type)) {
         .client_message => {
             const client_event: *const xcb.ClientMessageEvent = @ptrCast(current);
-            if (self.windows.get(client_event.window)) |window| {
+            if (self.window_map.get(client_event.window)) |window| {
                 if (client_event.*.data.data32[0] == window.delete_window_atom) {
                     window.is_open = false;
                     window.event_handler.handleEvent(.Destroy);
@@ -214,7 +226,7 @@ fn proccessEvent(
         },
         .configure_notify => {
             const config_event: *const xcb.ConfigureNotifyEvent = @ptrCast(current);
-            if (self.windows.get(config_event.window)) |window| {
+            if (self.window_map.get(config_event.window)) |window| {
                 if (config_event.width != window.width or config_event.height != window.height) {
                     window.width = config_event.width;
                     window.height = config_event.height;
@@ -227,20 +239,20 @@ fn proccessEvent(
         },
         .focus_in => {
             const focus_event: *const xcb.FocusEvent = @ptrCast(current);
-            if (self.windows.get(focus_event.window)) |window| window.event_handler.handleEvent(.FocusIn);
+            if (self.window_map.get(focus_event.window)) |window| window.event_handler.handleEvent(.FocusIn);
         },
         .focus_out => {
             const focus_event: *const xcb.FocusEvent = @ptrCast(current);
-            if (self.windows.get(focus_event.window)) |window| window.event_handler.handleEvent(.FocusOut);
+            if (self.window_map.get(focus_event.window)) |window| window.event_handler.handleEvent(.FocusOut);
         },
         .key_press => {
             const key_event: *const xcb.KeyEvent = @ptrCast(current);
-            if (self.windows.get(key_event.window)) |window| blk: {
                 if (window.last_key_time >= key_event.time) {
                     window.last_key_time = key_event.time;
                     break :blk;
                 }
                 window.last_key_time = key_event.time;
+            if (self.window_map.get(key_event.window)) |window| blk: {
                 window.event_handler.handleEvent(.{
                     .KeyPress = enumFromKeycode(key_event.detail),
                 });
@@ -248,7 +260,6 @@ fn proccessEvent(
         },
         .key_release => {
             const key_event: *const xcb.KeyEvent = @ptrCast(current);
-            if (self.windows.get(key_event.window)) |window| blk: {
                 const maybe_next_event: ?*const xcb.KeyEvent = @ptrCast(next);
                 if (maybe_next_event) |next_event| {
                     if (enumFromResponseType(next_event.response_type) == .key_press and
@@ -261,6 +272,7 @@ fn proccessEvent(
                     }
                 }
                 window.last_key_time = key_event.time;
+            if (self.window_map.get(key_event.window)) |window| blk: {
                 window.event_handler.handleEvent(.{
                     .KeyRelease = enumFromKeycode(key_event.detail),
                 });
@@ -268,7 +280,7 @@ fn proccessEvent(
         },
         .button_press => {
             const button_event: *const xcb.ButtonEvent = @ptrCast(current);
-            if (self.windows.get(button_event.window)) |window| {
+            if (self.window_map.get(button_event.window)) |window| {
                 window.event_handler.handleEvent(switch (button_event.detail) {
                     4 => .{ .MouseScrollV = 1 },
                     5 => .{ .MouseScrollV = -1 },
@@ -280,7 +292,7 @@ fn proccessEvent(
         },
         .button_release => {
             const button_event: *const xcb.ButtonEvent = @ptrCast(current);
-            if (self.windows.get(button_event.window)) |window| {
+            if (self.window_map.get(button_event.window)) |window| {
                 if (button_event.detail != 4 and button_event.detail != 5) {
                     window.event_handler.handleEvent(.{
                         .MouseRelease = enumFromMousecode(button_event.detail),
@@ -290,7 +302,7 @@ fn proccessEvent(
         },
         .motion_notify => {
             const motion_event: *const xcb.MotionNotifyEvent = @ptrCast(current);
-            if (self.windows.get(motion_event.window)) |window| {
+            if (self.window_map.get(motion_event.window)) |window| {
                 window.event_handler.handleEvent(.{
                     .MouseMove = .{
                         motion_event.event_x,

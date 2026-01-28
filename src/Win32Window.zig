@@ -21,11 +21,15 @@ context: *Win32Context,
 hwnd: *anyopaque,
 
 pub fn create(
+    self: *Self,
     context: *Win32Context,
     config: Window.Config,
-) Context.CreateWindowError!*Self {
-    const name_z = try context.allocator.dupeZ(u8, config.name);
-    defer context.allocator.free(name_z);
+) Context.CreateWindowError!void {
+    var buffer: [256]u8 = undefined;
+    if (config.name.len >= buffer.len - 1) return error.FailedToCreateWindow;
+    @memcpy(buffer[0..config.name.len], config.name);
+    buffer[config.name.len] = 0;
+    const name_z: [*:0]u8 = @ptrCast(buffer[0..config.name.len]);
 
     const style = if (config.resizable)
         win32.WS_VISIBLE |
@@ -74,9 +78,6 @@ pub fn create(
         null,
     ) orelse return error.FailedToCreateWindow;
 
-    const self = try context.allocator.create(Self);
-    errdefer context.allocator.destroy(self);
-
     self.* = .{
         .width = config.width,
         .height = config.height,
@@ -91,13 +92,11 @@ pub fn create(
         if (win32.GetLastError() == 0) break :blk;
         return error.FailedToCreateWindow;
     };
-
-    return self;
 }
 
 pub fn destroy(self: *Self) void {
     win32.DestroyWindow(self.hwnd);
-    self.context.allocator.destroy(self);
+    self.context.destroyWindow(self);
 }
 
 pub fn isOpen(self: *const Self) bool {
