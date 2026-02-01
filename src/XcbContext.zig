@@ -39,7 +39,7 @@ fn load(comptime Library: type, comptime prefix: []const u8, lib_name: []const u
     return library;
 }
 
-pub fn init(allocator: std.mem.Allocator, config: Context.Config) !Context {
+pub fn init(allocator: std.mem.Allocator, config: Context.Config) Context.InitError!Context {
     const self = try allocator.create(Self);
     errdefer allocator.destroy(self);
 
@@ -47,7 +47,7 @@ pub fn init(allocator: std.mem.Allocator, config: Context.Config) !Context {
         xcb.Library,
         "xcb_",
         "libxcb.so.1",
-    ) orelse return error.FailedToLoadFunction;
+    ) orelse return error.FailedToInitialize;
     errdefer self.xcb_lib.deinit();
 
     self.randr_lib = load(
@@ -61,7 +61,7 @@ pub fn init(allocator: std.mem.Allocator, config: Context.Config) !Context {
         xkb.Library,
         "xcb_xkb_",
         "libxcb-xkb.so",
-    ) orelse return error.FailedToLoadFunction;
+    ) orelse return error.FailedToInitialize;
     errdefer self.xkb_lib.deinit();
 
     self.connection = self.xcb_lib.connect(null, null) orelse return error.FailedToInitialize;
@@ -91,7 +91,7 @@ pub fn init(allocator: std.mem.Allocator, config: Context.Config) !Context {
                     13,
                 ),
                 null,
-            ) orelse return error.FailedToCreateWindow;
+            ) orelse return error.FailedToInitialize;
             defer std.c.free(reply);
         }
 
@@ -109,7 +109,7 @@ pub fn init(allocator: std.mem.Allocator, config: Context.Config) !Context {
                     0,
                 ),
                 null,
-            ) orelse return error.FailedToCreateWindow;
+            ) orelse return error.FailedToInitialize;
             defer std.c.free(reply);
 
             break :blk reply.device_id;
@@ -127,7 +127,7 @@ pub fn init(allocator: std.mem.Allocator, config: Context.Config) !Context {
                 0,
             ),
             null,
-        ) orelse return error.FailedToCreateWindow;
+        ) orelse return error.FailedToInitialize;
         defer std.c.free(reply);
     }
 

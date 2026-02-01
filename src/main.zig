@@ -12,7 +12,7 @@ pub const Window = @import("Window.zig");
 const XcbContext = @import("XcbContext.zig");
 const Win32Context = @import("Win32Context.zig");
 
-pub fn init(allocator: std.mem.Allocator, config: Context.Config) !Context {
+pub fn init(allocator: std.mem.Allocator, config: Context.Config) Context.InitError!Context {
     return switch (@import("builtin").target.os.tag) {
         .linux => try XcbContext.init(allocator, config),
         .windows => try Win32Context.init(allocator, config),

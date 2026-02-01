@@ -20,7 +20,7 @@ instance: *anyopaque,
 windows: []Win32Window,
 available_windows: std.ArrayList(u32),
 
-pub fn init(allocator: std.mem.Allocator, config: Context.Config) !Context {
+pub fn init(allocator: std.mem.Allocator, config: Context.Config) Context.InitError!Context {
     const self = try allocator.create(Self);
     errdefer allocator.destroy(self);
 

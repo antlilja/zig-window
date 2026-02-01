@@ -5,6 +5,10 @@ const Self = @This();
 const EventHandler = @import("EventHandler.zig");
 const Window = @import("Window.zig");
 
+pub const InitError = error{
+    FailedToInitialize,
+} || std.mem.Allocator.Error;
+
 pub const CreateWindowError = error{
     OutOfMemory,
     FailedToCreateWindow,
