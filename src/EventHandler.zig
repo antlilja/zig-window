@@ -118,15 +118,25 @@ pub const Mouse = enum(u8) {
 };
 
 pub const Event = union(enum) {
+    pub const ResizeData = struct {
+        u32,
+        u32,
+    };
+
+    pub const MouseMoveData = struct {
+        i32,
+        i32,
+    };
+
     Destroy: void,
-    Resize: struct { u32, u32 },
+    Resize: ResizeData,
     KeyPress: Key,
     KeyRelease: Key,
     MousePress: Mouse,
     MouseRelease: Mouse,
     MouseScrollV: i8,
     MouseScrollH: i8,
-    MouseMove: struct { i32, i32 },
+    MouseMove: MouseMoveData,
     FocusIn: void,
     FocusOut: void,
 };
