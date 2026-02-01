@@ -13,7 +13,6 @@ const Self = @This();
 width: u32,
 height: u32,
 is_open: bool,
-resizable: bool,
 
 event_handler: EventHandler,
 
@@ -82,7 +81,6 @@ pub fn create(
         .width = config.width,
         .height = config.height,
         .is_open = true,
-        .resizable = config.resizable,
         .event_handler = config.event_handler,
         .context = context,
         .hwnd = hwnd,

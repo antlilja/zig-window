@@ -20,7 +20,6 @@ const ATOM_WM_SIZE_HINTS: c_int = 41;
 width: u32,
 height: u32,
 is_open: bool,
-resizable: bool,
 
 event_handler: EventHandler,
 
@@ -165,7 +164,6 @@ pub fn create(
         .is_open = true,
         .width = config.width,
         .height = config.height,
-        .resizable = config.resizable,
 
         .event_handler = config.event_handler,
 
